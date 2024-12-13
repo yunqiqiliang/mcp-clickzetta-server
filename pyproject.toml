@@ -1,5 +1,5 @@
 [project]
-name = "mcp-snowflake-server"
+name = "mcp_snowflake_server"
 version = "0.0.1"
 description = "A simple Snowflake MCP server"
 readme = "README.md"
@@ -20,7 +20,7 @@ build-backend = "hatchling.build"
 dev-dependencies = ["pyright>=1.1.389"]
 
 [project.scripts]
-mcp_server_snowflake = "mcp_server_snowflake:main"
+mcp_snowflake_server = "mcp_snowflake_server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mcp_server_snowflake"]
+packages = ["src/mcp_snowflake_server"]

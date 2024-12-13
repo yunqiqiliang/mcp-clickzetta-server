@@ -64,7 +64,7 @@ The server offers six core tools:
           "--directory",
           "/absolute/path/to/mcp-snowflake-server",
           "run",
-          "mcp_server_snowflake"
+          "mcp_snowflake_snowflake"
           # Optionally: "--allow-write" (but not recommended)
       ],
       "env": {
