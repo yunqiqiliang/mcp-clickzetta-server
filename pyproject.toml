@@ -21,3 +21,6 @@ dev-dependencies = ["pyright>=1.1.389"]
 
 [project.scripts]
 mcp_server_snowflake = "mcp_server_snowflake:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_server_snowflake"]
