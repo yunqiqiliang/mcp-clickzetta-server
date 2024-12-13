@@ -1,0 +1,23 @@
+[project]
+name = "mcp-snowflake-server"
+version = "0.0.1"
+description = "A simple Snowflake MCP server"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "snowflake-snowpark-python",
+    "pandas",
+    "snowflake-connector-python[pandas]",
+    "python-dotenv"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = ["pyright>=1.1.389"]
+
+[project.scripts]
+mcp_server_snowflake = "mcp_server_snowflake:main"
