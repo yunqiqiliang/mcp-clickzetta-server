@@ -55,16 +55,15 @@ The server offers six core tools:
 
 ## Usage with Claude Desktop
 
+This server can be run without cloning or installing the repository.
+
 ```python
 # Add the server to your claude_desktop_config.json
 "mcpServers": {
   "snowflake": {
-      "command": "uv",
+      "command": "uvx",
       "args": [
-          "--directory",
-          "/absolute/path/to/mcp-snowflake-server",
-          "run",
-          "mcp_snowflake_snowflake"
+          "mcp_snowflake_server"
           # Optionally: "--allow-write" (but not recommended)
       ],
       "env": {
