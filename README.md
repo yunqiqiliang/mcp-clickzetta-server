@@ -1,5 +1,7 @@
 # Snowflake MCP Server
 
+[![smithery badge](https://smithery.ai/badge/mcp_snowflake_server)](https://smithery.ai/server/mcp_snowflake_server)
+
 ## Overview
 A Model Context Protocol (MCP) server implementation that provides database interaction with Snowflake. This server enables running SQL queries with tools and intereacting with a memo of data insights presented as a resource.
 
@@ -54,6 +56,14 @@ The server offers six core tools:
 
 
 ## Usage with Claude Desktop
+
+### Installing via Smithery
+
+To install Snowflake Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/mcp_snowflake_server):
+
+```bash
+npx -y @smithery/cli install mcp_snowflake_server --client claude
+```
 
 This server can be run without cloning or installing the repository.
 
