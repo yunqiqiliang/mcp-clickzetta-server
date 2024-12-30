@@ -1,6 +1,7 @@
 # Snowflake MCP Server
 
-[![smithery badge](https://smithery.ai/badge/mcp_snowflake_server)](https://smithery.ai/server/mcp_snowflake_server)
+[![smithery badge](https://smithery.ai/badge/mcp_snowflake_server)](https://smithery.ai/server/mcp_snowflake_server) ![PyPI - Version](https://img.shields.io/pypi/v/:mcp-snowflake-server)
+
 
 ## Overview
 A Model Context Protocol (MCP) server implementation that provides database interaction with Snowflake. This server enables running SQL queries with tools and intereacting with a memo of data insights presented as a resource.
