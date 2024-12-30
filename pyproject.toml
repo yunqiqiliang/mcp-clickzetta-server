@@ -1,6 +1,6 @@
 [project]
 name = "mcp_snowflake_server"
-version = "0.0.2"
+version = "0.1.0"
 description = "A simple Snowflake MCP server"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -9,7 +9,8 @@ dependencies = [
     "snowflake-snowpark-python",
     "pandas",
     "snowflake-connector-python[pandas]",
-    "python-dotenv"
+    "python-dotenv",
+    "sqlparse"
 ]
 
 [build-system]

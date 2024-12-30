@@ -59,22 +59,57 @@ This server can be run without cloning or installing the repository.
 
 ```python
 # Add the server to your claude_desktop_config.json
+# Locally installed
 "mcpServers": {
-  "snowflake": {
+  # Installed via pip
+  "snowflake_local": {
+      "command": "uv",
+      "args": [
+          "--directory",
+          "/absolute/path/to/mcp_snowflake_server",
+          "run",
+          "mcp_snowflake_server",
+          "--account",
+          "the_account",
+          "--warehouse",
+          "the_warehouse",
+          "--user",
+          "the_user",
+          "--password",
+          "their_password",
+          "--role",
+          "the_role"
+          "--database",
+          "the_database",
+          "--schema",
+          "the_schema",
+          # Optionally: "--allow-write" (but not recommended)
+      ]
+  },
+  # Installed via pip
+  "snowflake_pip": {
       "command": "uvx",
       "args": [
-          "mcp_snowflake_server"
+          "mcp_snowflake_server",
+          "--account",
+          "the_account",
+          "--warehouse",
+          "the_warehouse",
+          "--user",
+          "the_user",
+          "--password",
+          "their_password",
+          "--role",
+          "the_role"
+          "--database",
+          "the_database",
+          "--schema",
+          "the_schema",
           # Optionally: "--allow-write" (but not recommended)
-      ],
-      "env": {
-          "SNOWFLAKE_WAREHOUSE": "your_warehouse",
-          "SNOWFLAKE_DATABASE": "your_database",
-          "SNOWFLAKE_ACCOUNT": "your_account_identifier",
-          "SNOWFLAKE_USER": "your_username",
-          "SNOWFLAKE_ROLE": "your_role",
-          "SNOWFLAKE_SCHEMA": "your_schema",
-          "SNOWFLAKE_PASSWORD": "your_password"
-      }
+      ]
   }
 }
+
+
+
 ```
