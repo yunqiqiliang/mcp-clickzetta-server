@@ -12,6 +12,13 @@ def main():
         "--allow_write", required=False, default=False, action="store_true", help="Allow write operations on the database"
     )
     parser.add_argument("--log_dir", required=False, default=None, help="Directory to log to")
+    parser.add_argument(
+        "--prefetch",
+        required=False,
+        default=False,
+        action="store_true",
+        help="Prefetch table names and include them in the read_query tool description",
+    )
 
     dotenv.load_dotenv()
 
@@ -43,7 +50,9 @@ def main():
         "warehouse": args.warehouse,
         "role": args.role,
     }
-    asyncio.run(server.main(allow_write=args.allow_write, credentials=credentials, log_dir=args.log_dir))
+    asyncio.run(
+        server.main(allow_write=args.allow_write, credentials=credentials, log_dir=args.log_dir, prefetch=args.prefetch)
+    )
 
 
 # Optionally expose other important items at package level

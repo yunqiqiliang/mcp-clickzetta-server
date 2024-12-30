@@ -24,16 +24,22 @@ logger.info("Starting MCP Snowflake Server")
 class SnowflakeDB:
     def __init__(self, connection_config: dict):
         self.connection_config = connection_config
-        self._init_database()
+        self.initialized = False
         self.insights: list[str] = []
 
     def _init_database(self):
         """Initialize connection to the Snowflake database"""
         logger.debug("Initializing database connection")
-        self.session = Session.builder.configs(self.connection_config).create()
+        try:
+            self.session = Session.builder.configs(self.connection_config).create()
+        except Exception as e:
+            raise ValueError(
+                f"Error connecting to Snowflake database. The credentials were likely incorrect, and the server will not be able to connect to the database: {e}"
+            )
         self.session.sql("USE DATABASE " + self.connection_config.get("database").upper())
         self.session.sql("USE SCHEMA " + self.connection_config.get("schema").upper())
         self.session.sql("USE WAREHOUSE " + self.connection_config.get("warehouse").upper())
+        self.initialized = True
 
     def _synthesize_memo(self) -> str:
         """Synthesizes data insights into a formatted memo"""
@@ -56,6 +62,8 @@ class SnowflakeDB:
 
     def _execute_query(self, query: str) -> list[dict[str, Any]]:
         """Execute a SQL query and return results as a list of dictionaries"""
+        if not self.initialized:
+            self._init_database()
         logger.debug(f"Executing query: {query}")
         try:
             result = self.session.sql(query).to_pandas()
@@ -68,7 +76,7 @@ class SnowflakeDB:
             raise
 
 
-async def main(allow_write: bool = False, credentials: dict = None, log_dir: str = None):
+async def main(allow_write: bool = False, credentials: dict = None, log_dir: str = None, prefetch: bool = False):
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
         logger.handlers.append(logging.FileHandler(os.path.join(log_dir, "mcp_snowflake_server.log")))
@@ -215,9 +223,10 @@ async def main(allow_write: bool = False, credentials: dict = None, log_dir: str
         except Exception as e:
             return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
-    logger.info("Prefetching table names")
-    tables_brief = (await handle_call_tool("list_tables", {}))[0].text
-    logger.debug(f"Tables: {tables_brief}")
+    if prefetch:
+        logger.info("Prefetching table names")
+        tables_brief = (await handle_call_tool("list_tables", {}))[0].text
+        logger.debug(f"Tables: {tables_brief}")
 
     @server.list_tools()
     async def handle_list_tools() -> list[types.Tool]:
@@ -249,7 +258,11 @@ async def main(allow_write: bool = False, credentials: dict = None, log_dir: str
         return [
             types.Tool(
                 name="read_query",
-                description="Execute a SELECT query on the Snowflake database. These are the tables available: " + tables_brief,
+                description=(
+                    "Execute a SELECT query on the Snowflake database." + (" These are the tables available: " + tables_brief)
+                    if prefetch
+                    else ""
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
