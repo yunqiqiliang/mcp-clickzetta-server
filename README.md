@@ -1,6 +1,6 @@
 # Snowflake MCP Server
 
-[![smithery badge](https://smithery.ai/badge/mcp_snowflake_server)](https://smithery.ai/server/mcp_snowflake_server) ![PyPI - Version](https://img.shields.io/pypi/v/:mcp-snowflake-server)
+[![smithery badge](https://smithery.ai/badge/mcp_snowflake_server)](https://smithery.ai/server/mcp_snowflake_server) ![PyPI - Version](https://img.shields.io/pypi/dm/mcp-snowflake-server?color&logo=pypi&logoColor=white&label=PyPI%20downloads)
 
 
 ## Overview
