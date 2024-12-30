@@ -14,10 +14,7 @@ import importlib.metadata
 logging.basicConfig(
     level=logging.INFO,  # Set the log level
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("logs/mcp_snowflake_server.log"),  # Log file path
-        logging.StreamHandler(),  # Optional: still output to the console
-    ],
+    handlers=[logging.StreamHandler()],
 )
 
 logger = logging.getLogger("mcp_snowflake_server")
@@ -71,8 +68,10 @@ class SnowflakeDB:
             raise
 
 
-async def main(allow_write: bool = False, credentials: dict = None):
-
+async def main(allow_write: bool = False, credentials: dict = None, log_dir: str = None):
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+        logger.handlers.append(logging.FileHandler(os.path.join(log_dir, "mcp_snowflake_server.log")))
     logger.info("Starting Snowflake MCP Server")
 
     db = SnowflakeDB(credentials)

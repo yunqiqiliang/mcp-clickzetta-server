@@ -8,7 +8,10 @@ import os
 def main():
     """Main entry point for the package."""
     parser = argparse.ArgumentParser(description="Snowflake MCP Server")
-    parser.add_argument("--allow-write", default=False, action="store_true", help="Allow write operations on the database")
+    parser.add_argument(
+        "--allow_write", required=False, default=False, action="store_true", help="Allow write operations on the database"
+    )
+    parser.add_argument("--log_dir", required=False, default=None, help="Directory to log to")
 
     dotenv.load_dotenv()
 
@@ -40,7 +43,7 @@ def main():
         "warehouse": args.warehouse,
         "role": args.role,
     }
-    asyncio.run(server.main(allow_write=args.allow_write, credentials=credentials))
+    asyncio.run(server.main(allow_write=args.allow_write, credentials=credentials, log_dir=args.log_dir))
 
 
 # Optionally expose other important items at package level
