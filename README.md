@@ -65,19 +65,14 @@ To install Snowflake Server for Claude Desktop automatically via [Smithery](http
 npx -y @smithery/cli install mcp_snowflake_server --client claude
 ```
 
-This server can be run without cloning or installing the repository.
+### Installing via UVX
 
 ```python
 # Add the server to your claude_desktop_config.json
-# Locally installed
 "mcpServers": {
-  # Installed via pip
-  "snowflake_local": {
-      "command": "uv",
+  "snowflake_pip": {
+      "command": "uvx",
       "args": [
-          "--directory",
-          "/absolute/path/to/mcp_snowflake_server",
-          "run",
           "mcp_snowflake_server",
           "--account",
           "the_account",
@@ -95,11 +90,20 @@ This server can be run without cloning or installing the repository.
           "the_schema",
           # Optionally: "--allow-write" (but not recommended)
       ]
-  },
-  # Installed via pip
-  "snowflake_pip": {
-      "command": "uvx",
+  }
+}
+```
+
+### Installing locally
+```python
+# Add the server to your claude_desktop_config.json
+"mcpServers": {
+  "snowflake_local": {
+      "command": "uv",
       "args": [
+          "--directory",
+          "/absolute/path/to/mcp_snowflake_server",
+          "run",
           "mcp_snowflake_server",
           "--account",
           "the_account",
