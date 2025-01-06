@@ -64,3 +64,6 @@ def main():
 
 # Optionally expose other important items at package level
 __all__ = ["main", "server", "write_detector"]
+
+if __name__ == "__main__":
+    main()
