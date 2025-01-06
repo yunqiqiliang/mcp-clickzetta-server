@@ -12,6 +12,7 @@ def main():
         "--allow_write", required=False, default=False, action="store_true", help="Allow write operations on the database"
     )
     parser.add_argument("--log_dir", required=False, default=None, help="Directory to log to")
+    parser.add_argument("--log_level", required=False, default="INFO", help="Logging level")
     parser.add_argument(
         "--prefetch",
         required=False,
@@ -51,7 +52,13 @@ def main():
         "role": args.role,
     }
     asyncio.run(
-        server.main(allow_write=args.allow_write, credentials=credentials, log_dir=args.log_dir, prefetch=args.prefetch)
+        server.main(
+            allow_write=args.allow_write,
+            credentials=credentials,
+            log_dir=args.log_dir,
+            prefetch=args.prefetch,
+            log_level=args.log_level,
+        )
     )
 
 

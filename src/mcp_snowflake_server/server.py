@@ -7,7 +7,6 @@ from pydantic import AnyUrl
 from typing import Any
 from snowflake.snowpark import Session
 import os
-import dotenv
 from .write_detector import SQLWriteDetector
 import importlib.metadata
 
@@ -76,10 +75,15 @@ class SnowflakeDB:
             raise
 
 
-async def main(allow_write: bool = False, credentials: dict = None, log_dir: str = None, prefetch: bool = False):
+async def main(
+    allow_write: bool = False, credentials: dict = None, log_dir: str = None, prefetch: bool = False, log_level: str = "INFO"
+):
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
         logger.handlers.append(logging.FileHandler(os.path.join(log_dir, "mcp_snowflake_server.log")))
+    if log_level:
+        logger.setLevel(log_level)
+
     logger.info("Starting Snowflake MCP Server")
 
     db = SnowflakeDB(credentials)
