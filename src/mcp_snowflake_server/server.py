@@ -136,7 +136,7 @@ async def main(allow_write: bool = False, credentials: dict = None, log_dir: str
                 try:
                     logger.info("Listing tables")
                     results = db._execute_query(
-                        f"select table_catalog, table_schema, table_name, comment from {credentials.get("database")}.information_schema.tables where table_schema = '{credentials.get('schema').upper()}'"
+                        f"select table_catalog, table_schema, table_name, comment from {credentials.get('database')}.information_schema.tables where table_schema = '{credentials.get('schema').upper()}'"
                     )
                     logger.info("Received results: " + str(results))
                     return [types.TextContent(type="text", text=str(results), artifact={"type": "dataframe", "data": results})]
