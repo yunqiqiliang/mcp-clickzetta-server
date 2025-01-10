@@ -91,6 +91,8 @@ npx -y @smithery/cli install mcp_snowflake_server --client claude
           "the_schema",
           # Optionally: "--allow_write" (but not recommended)
           # Optionally: "--log_dir", "/absolute/path/to/logs"
+          # Optionally: "--log_level", "DEBUG"/"INFO"/"WARNING"/"ERROR"/"CRITICAL"
+          # Optionally: "--exclude_tools", "{tool name}", ["{other tool name}"]
       ]
   }
 }
@@ -123,6 +125,8 @@ npx -y @smithery/cli install mcp_snowflake_server --client claude
           "the_schema",
           # Optionally: "--allow_write" (but not recommended)
           # Optionally: "--log_dir", "/absolute/path/to/logs"
+          # Optionally: "--log_level", "DEBUG"/"INFO"/"WARNING"/"ERROR"/"CRITICAL"
+          # Optionally: "--exclude_tools", "{tool name}", ["{other tool name}"]
       ]
   }
 }
