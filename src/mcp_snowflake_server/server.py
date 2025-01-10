@@ -76,7 +76,12 @@ class SnowflakeDB:
 
 
 async def main(
-    allow_write: bool = False, credentials: dict = None, log_dir: str = None, prefetch: bool = False, log_level: str = "INFO"
+    allow_write: bool = False,
+    credentials: dict = None,
+    log_dir: str = None,
+    prefetch: bool = False,
+    log_level: str = "INFO",
+    exclude_tools: list[str] = [],
 ):
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
@@ -135,94 +140,103 @@ async def main(
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         """Handle tool execution requests"""
         logger.info(f"Handling tool execution request for {name} with args {arguments}")
+        if name in exclude_tools:
+            return [types.TextContent(type="text", text=f"Tool {name} is excluded from this data connection")]
         try:
-            if name == "list_tables":
-                try:
-                    logger.info("Listing tables")
-                    results = db._execute_query(
-                        f"select table_catalog, table_schema, table_name, comment from {credentials.get('database')}.information_schema.tables where table_schema = '{credentials.get('schema').upper()}'"
-                    )
-                    logger.info("Received results: " + str(results))
-                    return [types.TextContent(type="text", text=str(results), artifact={"type": "dataframe", "data": results})]
-                except Exception as e:
-                    logger.error(f"Error: {str(e)}")
-                    return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+            match name:
+                case "list_tables":
+                    try:
+                        logger.info("Listing tables")
+                        results = db._execute_query(
+                            f"select table_catalog, table_schema, table_name, comment from {credentials.get('database')}.information_schema.tables where table_schema = '{credentials.get('schema').upper()}'"
+                        )
+                        logger.info("Received results: " + str(results))
+                        return [
+                            types.TextContent(type="text", text=str(results), artifact={"type": "dataframe", "data": results})
+                        ]
+                    except Exception as e:
+                        logger.error(f"Error: {str(e)}")
+                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+                case "describe_table":
+                    try:
+                        if not arguments or "table_name" not in arguments:
+                            raise ValueError("Missing table_name argument")
+                        split_identifier = arguments["table_name"].split(".")
+                        table_name = split_identifier[-1].upper()
+                        schema_name = (split_identifier[-2] if len(split_identifier) > 1 else credentials.get("schema")).upper()
+                        database_name = (
+                            split_identifier[-3] if len(split_identifier) > 2 else credentials.get("database")
+                        ).upper()
+                        results = db._execute_query(
+                            f"select column_name, column_default, is_nullable, data_type, comment from {database_name}.information_schema.columns where table_schema = '{schema_name}' and table_name = '{table_name}'"
+                        )
+                        return [
+                            types.TextContent(type="text", text=str(results), artifact={"type": "dataframe", "data": results})
+                        ]
+                    except Exception as e:
+                        logger.error(f"Error: {str(e)}")
+                case "read_query":
+                    try:
+                        assert not write_detector.analyze_query(arguments["query"])[
+                            "contains_write"
+                        ], "Calls to read_query should not contain write operations"
+                        results = db._execute_query(arguments["query"])
+                        results_text = (
+                            str(results)
+                            if len(results) < 50
+                            else str(results[:50])
+                            + "\nResults of query have been truncated. There are "
+                            + str(len(results) - 50)
+                            + " more rows."
+                        )
+                        return [
+                            types.TextContent(type="text", text=results_text, artifact={"type": "dataframe", "data": results})
+                        ]
+                    except Exception as e:
+                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+                case "append_insight":
+                    try:
+                        if not arguments or "insight" not in arguments:
+                            raise ValueError("Missing insight argument")
 
-            elif name == "describe_table":
-                try:
-                    if not arguments or "table_name" not in arguments:
-                        raise ValueError("Missing table_name argument")
-                    split_identifier = arguments["table_name"].split(".")
-                    table_name = split_identifier[-1].upper()
-                    schema_name = (split_identifier[-2] if len(split_identifier) > 1 else credentials.get("schema")).upper()
-                    database_name = (split_identifier[-3] if len(split_identifier) > 2 else credentials.get("database")).upper()
-                    results = db._execute_query(
-                        f"select column_name, column_default, is_nullable, data_type, comment from {database_name}.information_schema.columns where table_schema = '{schema_name}' and table_name = '{table_name}'"
-                    )
-                    return [types.TextContent(type="text", text=str(results), artifact={"type": "dataframe", "data": results})]
-                except Exception as e:
-                    logger.error(f"Error: {str(e)}")
-            elif name == "read_query":
-                try:
-                    assert not write_detector.analyze_query(arguments["query"])[
-                        "contains_write"
-                    ], "Calls to read_query should not contain write operations"
-                    results = db._execute_query(arguments["query"])
-                    results_text = (
-                        str(results)
-                        if len(results) < 50
-                        else str(results[:50])
-                        + "\nResults of query have been truncated. There are "
-                        + str(len(results) - 50)
-                        + " more rows."
-                    )
-                    return [types.TextContent(type="text", text=results_text, artifact={"type": "dataframe", "data": results})]
-                except Exception as e:
-                    return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-            elif name == "append_insight":
-                try:
-                    if not arguments or "insight" not in arguments:
-                        raise ValueError("Missing insight argument")
+                        db.insights.append(arguments["insight"])
+                        _ = db._synthesize_memo()
 
-                    db.insights.append(arguments["insight"])
-                    _ = db._synthesize_memo()
+                        # Notify clients that the memo resource has changed
+                        await server.request_context.session.send_resource_updated(AnyUrl("memo://insights"))
 
-                    # Notify clients that the memo resource has changed
-                    await server.request_context.session.send_resource_updated(AnyUrl("memo://insights"))
-
-                    return [types.TextContent(type="text", text="Insight added to memo")]
-                except Exception as e:
-                    logger.error(f"Error: {str(e)}")
-                    return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-            elif name == "write_query":
-                try:
-                    if not allow_write:
-                        raise ValueError("Write operations are not allowed for this data connection")
-                    if arguments["query"].strip().upper().startswith("SELECT"):
-                        raise ValueError("SELECT queries are not allowed for write_query")
-                    results = db._execute_query(arguments["query"])
-                    return [types.TextContent(type="text", text=str(results))]
-                except Exception as e:
-                    logger.error(f"Error: {str(e)}")
-                    return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-
-            elif name == "create_table":
-                try:
-                    if not allow_write:
-                        raise ValueError("Write operations are not allowed for this data connection")
-                    if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
-                        raise ValueError("Only CREATE TABLE statements are allowed")
-                    db._execute_query(arguments["query"])
-                    return [types.TextContent(type="text", text="Table created successfully")]
-                except Exception as e:
-                    logger.error(f"Error: {str(e)}")
-                    return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-            else:
-                try:
-                    raise ValueError(f"Unknown tool: {name}")
-                except Exception as e:
-                    logger.error(f"Error: {str(e)}")
-                    return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+                        return [types.TextContent(type="text", text="Insight added to memo")]
+                    except Exception as e:
+                        logger.error(f"Error: {str(e)}")
+                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+                case "write_query":
+                    try:
+                        if not allow_write:
+                            raise ValueError("Write operations are not allowed for this data connection")
+                        if arguments["query"].strip().upper().startswith("SELECT"):
+                            raise ValueError("SELECT queries are not allowed for write_query")
+                        results = db._execute_query(arguments["query"])
+                        return [types.TextContent(type="text", text=str(results))]
+                    except Exception as e:
+                        logger.error(f"Error: {str(e)}")
+                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+                case "create_table":
+                    try:
+                        if not allow_write:
+                            raise ValueError("Write operations are not allowed for this data connection")
+                        if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
+                            raise ValueError("Only CREATE TABLE statements are allowed")
+                        db._execute_query(arguments["query"])
+                        return [types.TextContent(type="text", text="Table created successfully")]
+                    except Exception as e:
+                        logger.error(f"Error: {str(e)}")
+                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+                case _:
+                    try:
+                        raise ValueError(f"Unknown tool: {name}")
+                    except Exception as e:
+                        logger.error(f"Error: {str(e)}")
+                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
         except Exception as e:
             return [types.TextContent(type="text", text=f"Error: {str(e)}")]
@@ -259,7 +273,7 @@ async def main(
                 },
             ),
         ]
-        return [
+        read_tools = [
             types.Tool(
                 name="read_query",
                 description=(
@@ -305,7 +319,10 @@ async def main(
                     "required": ["insight"],
                 },
             ),
-        ] + (write_tools if allow_write else [])
+        ]
+        all_tools = read_tools + (write_tools if allow_write else [])
+        included_tools = [tool for tool in all_tools if tool.name not in exclude_tools]
+        return included_tools
 
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         logger.info("Server running with stdio transport")

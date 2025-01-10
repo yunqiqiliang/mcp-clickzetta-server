@@ -20,6 +20,13 @@ def main():
         action="store_true",
         help="Prefetch table names and include them in the read_query tool description",
     )
+    parser.add_argument(
+        "--exclude_tools",
+        required=False,
+        default=[],
+        nargs="+",
+        help="List of tools to exclude from the read_query tool description",
+    )
 
     dotenv.load_dotenv()
 
@@ -58,6 +65,7 @@ def main():
             log_dir=args.log_dir,
             prefetch=args.prefetch,
             log_level=args.log_level,
+            exclude_tools=args.exclude_tools,
         )
     )
 
