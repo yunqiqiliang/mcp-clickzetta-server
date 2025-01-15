@@ -248,24 +248,28 @@ async def main(
             return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
     if prefetch:
-        logger.info("Prefetching table descriptions")
-        table_results = db._execute_query(
-            f"select table_name, comment from {credentials.get('database')}.information_schema.tables where table_schema = '{credentials.get('schema').upper()}'"
-        )
-        logger.debug("Received results")
-        logger.info("Prefetching column descriptions")
-        column_results = db._execute_query(
-            f"select table_name, column_name, data_type, comment from {credentials.get('database')}.information_schema.columns where table_schema = '{credentials.get('schema').upper()}'"
-        )
-        logger.debug("Received results")
-        tables_brief = {}
-        for row in table_results:
-            tables_brief[row["TABLE_NAME"]] = row
-            tables_brief[row["TABLE_NAME"]]["COLUMNS"] = {}
-        for row in column_results:
-            tables_brief[row["TABLE_NAME"]]["COLUMNS"][row["COLUMN_NAME"]] = row
-        tables_brief = yaml.dump(tables_brief, indent=2)
-        logger.debug(f"Generated tables brief: {tables_brief}")
+        try:
+            logger.info("Prefetching table descriptions")
+            table_results = db._execute_query(
+                f"select table_name, comment from {credentials.get('database')}.information_schema.tables where table_schema = '{credentials.get('schema').upper()}'"
+            )
+            logger.debug("Received results")
+            logger.info("Prefetching column descriptions")
+            column_results = db._execute_query(
+                f"select table_name, column_name, data_type, comment from {credentials.get('database')}.information_schema.columns where table_schema = '{credentials.get('schema').upper()}'"
+            )
+            logger.debug("Received results")
+            tables_brief = {}
+            for row in table_results:
+                tables_brief[row["TABLE_NAME"]] = row
+                tables_brief[row["TABLE_NAME"]]["COLUMNS"] = {}
+            for row in column_results:
+                tables_brief[row["TABLE_NAME"]]["COLUMNS"][row["COLUMN_NAME"]] = row
+            tables_brief = yaml.dump(tables_brief, indent=2)
+            logger.debug(f"Generated tables brief: {tables_brief}")
+        except Exception as e:
+            tables_brief = f"Error prefetching table descriptions: {e}"
+            logger.error(tables_brief)
 
     @server.list_tools()
     async def handle_list_tools() -> list[types.Tool]:

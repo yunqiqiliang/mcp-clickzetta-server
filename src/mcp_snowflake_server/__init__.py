@@ -16,7 +16,7 @@ def main():
     parser.add_argument(
         "--prefetch",
         required=False,
-        default=False,
+        default=True,
         action="store_true",
         help="Prefetch table descriptions (when enabled, list_tables and describe_table are disabled)",
     )
