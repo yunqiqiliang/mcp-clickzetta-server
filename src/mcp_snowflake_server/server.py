@@ -1,3 +1,4 @@
+import json
 import logging
 from mcp.server.models import InitializationOptions
 import mcp.types as types
@@ -9,6 +10,7 @@ from snowflake.snowpark import Session
 import os
 from .write_detector import SQLWriteDetector
 import importlib.metadata
+import yaml
 
 logging.basicConfig(
     level=logging.INFO,  # Set the log level
@@ -152,7 +154,9 @@ async def main(
                         )
                         logger.info("Received results: " + str(results))
                         return [
-                            types.TextContent(type="text", text=str(results), artifact={"type": "dataframe", "data": results})
+                            types.TextContent(
+                                type="text", text=yaml.dump(results, indent=2), artifact={"type": "dataframe", "data": results}
+                            )
                         ]
                     except Exception as e:
                         logger.error(f"Error: {str(e)}")
@@ -171,7 +175,9 @@ async def main(
                             f"select column_name, column_default, is_nullable, data_type, comment from {database_name}.information_schema.columns where table_schema = '{schema_name}' and table_name = '{table_name}'"
                         )
                         return [
-                            types.TextContent(type="text", text=str(results), artifact={"type": "dataframe", "data": results})
+                            types.TextContent(
+                                type="text", text=yaml.dump(results, indent=2), artifact={"type": "dataframe", "data": results}
+                            )
                         ]
                     except Exception as e:
                         logger.error(f"Error: {str(e)}")
@@ -182,7 +188,7 @@ async def main(
                         ], "Calls to read_query should not contain write operations"
                         results = db._execute_query(arguments["query"])
                         results_text = (
-                            str(results)
+                            yaml.dump(results, indent=2)
                             if len(results) < 50
                             else str(results[:50])
                             + "\nResults of query have been truncated. There are "
@@ -242,9 +248,24 @@ async def main(
             return [types.TextContent(type="text", text=f"Error: {str(e)}")]
 
     if prefetch:
-        logger.info("Prefetching table names")
-        tables_brief = (await handle_call_tool("list_tables", {}))[0].text
-        logger.debug(f"Tables: {tables_brief}")
+        logger.info("Prefetching table descriptions")
+        table_results = db._execute_query(
+            f"select table_name, comment from {credentials.get('database')}.information_schema.tables where table_schema = '{credentials.get('schema').upper()}'"
+        )
+        logger.debug("Received results")
+        logger.info("Prefetching column descriptions")
+        column_results = db._execute_query(
+            f"select table_name, column_name, data_type, comment from {credentials.get('database')}.information_schema.columns where table_schema = '{credentials.get('schema').upper()}'"
+        )
+        logger.debug("Received results")
+        tables_brief = {}
+        for row in table_results:
+            tables_brief[row["TABLE_NAME"]] = row
+            tables_brief[row["TABLE_NAME"]]["COLUMNS"] = {}
+        for row in column_results:
+            tables_brief[row["TABLE_NAME"]]["COLUMNS"][row["COLUMN_NAME"]] = row
+        tables_brief = yaml.dump(tables_brief, indent=2)
+        logger.debug(f"Generated tables brief: {tables_brief}")
 
     @server.list_tools()
     async def handle_list_tools() -> list[types.Tool]:
@@ -322,6 +343,8 @@ async def main(
         ]
         all_tools = read_tools + (write_tools if allow_write else [])
         included_tools = [tool for tool in all_tools if tool.name not in exclude_tools]
+        if prefetch:
+            included_tools = [tool for tool in included_tools if tool.name not in ["describe_table", "list_tables"]]
         return included_tools
 
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):

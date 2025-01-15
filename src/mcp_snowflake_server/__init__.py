@@ -18,7 +18,7 @@ def main():
         required=False,
         default=False,
         action="store_true",
-        help="Prefetch table names and include them in the read_query tool description",
+        help="Prefetch table descriptions (when enabled, list_tables and describe_table are disabled)",
     )
     parser.add_argument(
         "--exclude_tools",
