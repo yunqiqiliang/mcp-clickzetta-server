@@ -43,7 +43,7 @@ class SnowflakeDB:
         except Exception as e:
             raise ValueError(f"Failed to connect to Snowflake database: {e}")
 
-    def execute_query(self, query: str, max_results: int = None) -> list[dict[str, Any]]:
+    def execute_query(self, query: str) -> list[dict[str, Any]]:
         """Execute a SQL query and return results as a list of dictionaries"""
         if not self.session:
             self._init_database()
@@ -52,10 +52,9 @@ class SnowflakeDB:
         try:
             result = self.session.sql(query).to_pandas()
             result_rows = result.to_dict(orient="records")
+            query_id = str(uuid.uuid4())
 
-            if max_results and len(result_rows) > max_results:
-                return result_rows[:max_results], True
-            return result_rows, False
+            return result_rows, query_id
 
         except Exception as e:
             logger.error(f'Database error executing "{query}": {e}')
@@ -109,7 +108,7 @@ async def handle_list_tables(arguments, db, *_):
         FROM {db.connection_config['database']}.information_schema.tables 
         WHERE table_schema = '{db.connection_config['schema'].upper()}'
     """
-    results, _ = db.execute_query(query)
+    results, query_id = db.execute_query(query)
     return [types.TextContent(type="text", text=data_to_yaml(results), artifacts=[{"type": "dataframe", "data": results}])]
 
 
@@ -127,8 +126,12 @@ async def handle_describe_table(arguments, db, *_):
         FROM {database_name}.information_schema.columns 
         WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'
     """
-    results, _ = db.execute_query(query)
-    return [types.TextContent(type="text", text=data_to_yaml(results), artifacts=[{"type": "dataframe", "data": results}])]
+    results, query_id = db.execute_query(query)
+    return [
+        types.TextContent(
+            type="text", text=data_to_yaml(results), artifacts=[{"type": "dataframe", "data": results, "query_id": query_id}]
+        )
+    ]
 
 
 async def handle_read_query(arguments, db, write_detector, *_):
@@ -136,15 +139,18 @@ async def handle_read_query(arguments, db, write_detector, *_):
     if write_detector.analyze_query(arguments["query"])["contains_write"]:
         raise ValueError("Calls to read_query should not contain write operations")
 
-    results, truncated = db.execute_query(arguments["query"], MAX_RESULTS)
-    query_id = str(uuid.uuid4())
-
-    results_text = data_to_yaml(results)
-    if truncated:
+    results, query_id = db.execute_query(arguments["query"])
+    truncate = len(results) > MAX_RESULTS
+    results_text = data_to_yaml(results[:MAX_RESULTS])
+    if truncate:
         results_text += f"\nResults of query have been truncated. There are {len(results) - MAX_RESULTS} more rows."
     results_text += f"\nquery_id = {query_id}"
 
-    return [types.TextContent(type="text", text=results_text, artifacts=[{"type": "dataframe", "data": results}])]
+    return [
+        types.TextContent(
+            type="text", text=results_text, artifacts=[{"type": "dataframe", "data": results, "query_id": query_id}]
+        )
+    ]
 
 
 async def handle_append_insight(arguments, db, _, __, server):
@@ -162,7 +168,7 @@ async def handle_write_query(arguments, db, _, allow_write, __):
     if arguments["query"].strip().upper().startswith("SELECT"):
         raise ValueError("SELECT queries are not allowed for write_query")
 
-    results, _ = db.execute_query(arguments["query"])
+    results, query_id = db.execute_query(arguments["query"])
     return [types.TextContent(type="text", text=str(results))]
 
 
@@ -172,21 +178,21 @@ async def handle_create_table(arguments, db, _, allow_write, __):
     if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
         raise ValueError("Only CREATE TABLE statements are allowed")
 
-    db.execute_query(arguments["query"])
-    return [types.TextContent(type="text", text="Table created successfully")]
+    results, query_id = db.execute_query(arguments["query"])
+    return [types.TextContent(type="text", text=f"Table created successfully. query_id = {query_id}")]
 
 
 async def prefetch_tables(db: SnowflakeDB, credentials: dict) -> str:
     """Prefetch table and column information"""
     try:
         logger.info("Prefetching table descriptions")
-        table_results, _ = db.execute_query(
+        table_results, query_id = db.execute_query(
             f"""SELECT table_name, comment 
                 FROM {credentials['database']}.information_schema.tables 
                 WHERE table_schema = '{credentials['schema'].upper()}'"""
         )
 
-        column_results, _ = db.execute_query(
+        column_results, query_id = db.execute_query(
             f"""SELECT table_name, column_name, data_type, comment 
                 FROM {credentials['database']}.information_schema.columns 
                 WHERE table_schema = '{credentials['schema'].upper()}'"""
