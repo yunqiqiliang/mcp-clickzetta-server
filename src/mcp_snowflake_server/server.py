@@ -1,18 +1,19 @@
-from dataclasses import dataclass
-import json
 import logging
+from functools import wraps
+from typing import Any, Callable
+import os
+import uuid
+import yaml
+import importlib.metadata
+
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
-from pydantic import AnyUrl
-from typing import Any, Optional
+from pydantic import AnyUrl, BaseModel
 from snowflake.snowpark import Session
-import os
+
 from .write_detector import SQLWriteDetector
-import importlib.metadata
-import yaml
-import uuid
 
 # Configure logging
 logging.basicConfig(
@@ -23,95 +24,186 @@ logging.basicConfig(
 logger = logging.getLogger("mcp_snowflake_server")
 
 
-@dataclass
-class DatabaseConfig:
-    database: str
-    schema: str
-    warehouse: str
-    connection_config: dict
-
-    def get_qualified_name(self, *parts: str) -> str:
-        """Create a fully qualified database object name"""
-        return ".".join(part.upper() for part in parts if part)
+def data_to_yaml(data: Any) -> str:
+    return yaml.dump(data, indent=2, sort_keys=False)
 
 
 class SnowflakeDB:
-    MAX_RESULTS = 50
-
-    def __init__(self, config: DatabaseConfig):
-        self.config = config
-        self.session: Optional[Session] = None
+    def __init__(self, connection_config: dict):
+        self.connection_config = connection_config
+        self.session = None
         self.insights: list[str] = []
-        self.initialized = False
 
-    def _init_database(self) -> None:
+    def _init_database(self):
         """Initialize connection to the Snowflake database"""
-        logger.debug("Initializing database connection")
         try:
-            self.session = Session.builder.configs(self.config.connection_config).create()
-            self._set_context()
-            self.initialized = True
+            self.session = Session.builder.configs(self.connection_config).create()
+            for component in ["database", "schema", "warehouse"]:
+                self.session.sql(f"USE {component.upper()} {self.connection_config[component].upper()}")
         except Exception as e:
-            raise ValueError(f"Error connecting to Snowflake database: {e}")
+            raise ValueError(f"Failed to connect to Snowflake database: {e}")
 
-    def _set_context(self) -> None:
-        """Set the database context"""
-        for context_type, value in [
-            ("DATABASE", self.config.database),
-            ("SCHEMA", self.config.schema),
-            ("WAREHOUSE", self.config.warehouse),
-        ]:
-            self.session.sql(f"USE {context_type} {value.upper()}").collect()
-
-    def execute_query(self, query: str, truncate: bool = True) -> tuple[list[dict[str, Any]], str]:
-        """Execute a SQL query and return results with query ID"""
-        if not self.initialized:
+    def execute_query(self, query: str, max_results: int = None) -> list[dict[str, Any]]:
+        """Execute a SQL query and return results as a list of dictionaries"""
+        if not self.session:
             self._init_database()
 
         logger.debug(f"Executing query: {query}")
         try:
             result = self.session.sql(query).to_pandas()
             result_rows = result.to_dict(orient="records")
-            query_id = str(uuid.uuid4())
 
-            if truncate:
-                truncated = len(result_rows) > self.MAX_RESULTS
-                result_rows = result_rows[: self.MAX_RESULTS]
-
-                truncation_msg = (
-                    f"\nResults of query have been truncated. There are {len(result_rows) - self.MAX_RESULTS} more rows."
-                    if truncated
-                    else ""
-                )
-                return result_rows, f"{truncation_msg}\nquery_id = {query_id}"
-
-            return result_rows, query_id
+            if max_results and len(result_rows) > max_results:
+                return result_rows[:max_results], True
+            return result_rows, False
 
         except Exception as e:
             logger.error(f'Database error executing "{query}": {e}')
             raise
 
-    def synthesize_memo(self) -> str:
-        """Synthesize data insights into a formatted memo"""
-        logger.debug(f"Synthesizing memo with {len(self.insights)} insights")
+    def add_insight(self, insight: str) -> None:
+        """Add a new insight to the collection"""
+        self.insights.append(insight)
+
+    def get_memo(self) -> str:
+        """Generate a formatted memo from collected insights"""
         if not self.insights:
             return "No data insights have been discovered yet."
 
-        memo_parts = [
-            "📊 Data Intelligence Memo 📊\n",
-            "Key Insights Discovered:\n",
-            "\n".join(f"- {insight}" for insight in self.insights),
-        ]
+        memo = "📊 Data Intelligence Memo 📊\n\n"
+        memo += "Key Insights Discovered:\n\n"
+        memo += "\n".join(f"- {insight}" for insight in self.insights)
 
         if len(self.insights) > 1:
-            memo_parts.extend(
-                [
-                    "\nSummary:",
-                    f"Analysis has revealed {len(self.insights)} key data insights that suggest opportunities for strategic optimization and growth.",
-                ]
-            )
+            memo += f"\n\nSummary:\nAnalysis has revealed {len(self.insights)} key data insights that suggest opportunities for strategic optimization and growth."
 
-        return "\n".join(memo_parts)
+        return memo
+
+
+def handle_tool_errors(func: Callable) -> Callable:
+    """Decorator to standardize tool error handling"""
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs) -> list[types.TextContent]:
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in {func.__name__}: {str(e)}")
+            return [types.TextContent(type="text", text=f"Error: {str(e)}")]
+
+    return wrapper
+
+
+class Tool(BaseModel):
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+    handler: Callable[[str, dict[str, Any] | None], list[types.TextContent | types.ImageContent | types.EmbeddedResource]]
+    tags: list[str] = []
+
+
+# Tool handlers
+async def handle_list_tables(arguments, db, *_):
+    query = f"""
+        SELECT table_catalog, table_schema, table_name, comment 
+        FROM {db.connection_config['database']}.information_schema.tables 
+        WHERE table_schema = '{db.connection_config['schema'].upper()}'
+    """
+    results, _ = db.execute_query(query)
+    return [types.TextContent(type="text", text=data_to_yaml(results), artifacts=[{"type": "dataframe", "data": results}])]
+
+
+async def handle_describe_table(arguments, db, *_):
+    if not arguments or "table_name" not in arguments:
+        raise ValueError("Missing table_name argument")
+
+    split_identifier = arguments["table_name"].split(".")
+    table_name = split_identifier[-1].upper()
+    schema_name = (split_identifier[-2] if len(split_identifier) > 1 else db.connection_config["schema"]).upper()
+    database_name = (split_identifier[-3] if len(split_identifier) > 2 else db.connection_config["database"]).upper()
+
+    query = f"""
+        SELECT column_name, column_default, is_nullable, data_type, comment 
+        FROM {database_name}.information_schema.columns 
+        WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'
+    """
+    results, _ = db.execute_query(query)
+    return [types.TextContent(type="text", text=data_to_yaml(results), artifacts=[{"type": "dataframe", "data": results}])]
+
+
+async def handle_read_query(arguments, db, write_detector, *_):
+    MAX_RESULTS = 50
+    if write_detector.analyze_query(arguments["query"])["contains_write"]:
+        raise ValueError("Calls to read_query should not contain write operations")
+
+    results, truncated = db.execute_query(arguments["query"], MAX_RESULTS)
+    query_id = str(uuid.uuid4())
+
+    results_text = data_to_yaml(results)
+    if truncated:
+        results_text += f"\nResults of query have been truncated. There are {len(results) - MAX_RESULTS} more rows."
+    results_text += f"\nquery_id = {query_id}"
+
+    return [types.TextContent(type="text", text=results_text, artifacts=[{"type": "dataframe", "data": results}])]
+
+
+async def handle_append_insight(arguments, db, _, __, server):
+    if not arguments or "insight" not in arguments:
+        raise ValueError("Missing insight argument")
+
+    db.add_insight(arguments["insight"])
+    await server.request_context.session.send_resource_updated(AnyUrl("memo://insights"))
+    return [types.TextContent(type="text", text="Insight added to memo")]
+
+
+async def handle_write_query(arguments, db, _, allow_write, __):
+    if not allow_write:
+        raise ValueError("Write operations are not allowed for this data connection")
+    if arguments["query"].strip().upper().startswith("SELECT"):
+        raise ValueError("SELECT queries are not allowed for write_query")
+
+    results, _ = db.execute_query(arguments["query"])
+    return [types.TextContent(type="text", text=str(results))]
+
+
+async def handle_create_table(arguments, db, _, allow_write, __):
+    if not allow_write:
+        raise ValueError("Write operations are not allowed for this data connection")
+    if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
+        raise ValueError("Only CREATE TABLE statements are allowed")
+
+    db.execute_query(arguments["query"])
+    return [types.TextContent(type="text", text="Table created successfully")]
+
+
+async def prefetch_tables(db: SnowflakeDB, credentials: dict) -> str:
+    """Prefetch table and column information"""
+    try:
+        logger.info("Prefetching table descriptions")
+        table_results, _ = db.execute_query(
+            f"""SELECT table_name, comment 
+                FROM {credentials['database']}.information_schema.tables 
+                WHERE table_schema = '{credentials['schema'].upper()}'"""
+        )
+
+        column_results, _ = db.execute_query(
+            f"""SELECT table_name, column_name, data_type, comment 
+                FROM {credentials['database']}.information_schema.columns 
+                WHERE table_schema = '{credentials['schema'].upper()}'"""
+        )
+
+        tables_brief = {}
+        for row in table_results:
+            tables_brief[row["TABLE_NAME"]] = {**row, "COLUMNS": {}}
+
+        for row in column_results:
+            tables_brief[row["TABLE_NAME"]]["COLUMNS"][row["COLUMN_NAME"]] = row
+
+        return data_to_yaml(tables_brief)
+
+    except Exception as e:
+        logger.error(f"Error prefetching table descriptions: {e}")
+        return f"Error prefetching table descriptions: {e}"
 
 
 async def main(
@@ -122,6 +214,7 @@ async def main(
     log_level: str = "INFO",
     exclude_tools: list[str] = [],
 ):
+    # Setup logging
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
         logger.handlers.append(logging.FileHandler(os.path.join(log_dir, "mcp_snowflake_server.log")))
@@ -134,12 +227,87 @@ async def main(
     server = Server("snowflake-manager")
     write_detector = SQLWriteDetector()
 
-    # Register handlers
-    logger.debug("Registering handlers")
+    tables_brief = await prefetch_tables(db, credentials) if prefetch else ""
 
+    all_tools = [
+        Tool(
+            name="list_tables",
+            description="List all tables in the Snowflake database",
+            input_schema={
+                "type": "object",
+                "properties": {},
+            },
+            handler=handle_list_tables,
+            tags=["description"],
+        ),
+        Tool(
+            name="describe_table",
+            description="Get the schema information for a specific table",
+            input_schema={
+                "type": "object",
+                "properties": {"table_name": {"type": "string", "description": "Name of the table to describe"}},
+                "required": ["table_name"],
+            },
+            handler=handle_describe_table,
+            tags=["description"],
+        ),
+        Tool(
+            name="read_query",
+            description="Execute a SELECT query. The tables have the following columns: " + tables_brief,
+            input_schema={
+                "type": "object",
+                "properties": {"query": {"type": "string", "description": "SELECT SQL query to execute"}},
+                "required": ["query"],
+            },
+            handler=handle_read_query,
+        ),
+        Tool(
+            name="append_insight",
+            description="Add a data insight to the memo",
+            input_schema={
+                "type": "object",
+                "properties": {"insight": {"type": "string", "description": "Data insight discovered from analysis"}},
+                "required": ["insight"],
+            },
+            handler=handle_append_insight,
+            tags=["resource_based"],
+        ),
+        Tool(
+            name="write_query",
+            description="Execute an INSERT, UPDATE, or DELETE query on the Snowflake database",
+            input_schema={
+                "type": "object",
+                "properties": {"query": {"type": "string", "description": "SQL query to execute"}},
+                "required": ["query"],
+            },
+            handler=handle_write_query,
+            tags=["write"],
+        ),
+        Tool(
+            name="create_table",
+            description="Create a new table in the Snowflake database",
+            input_schema={
+                "type": "object",
+                "properties": {"query": {"type": "string", "description": "CREATE TABLE SQL statement"}},
+                "required": ["query"],
+            },
+            handler=handle_create_table,
+            tags=["write"],
+        ),
+    ]
+
+    exclude_tags = []
+    if not allow_write:
+        exclude_tags.append("write")
+    if prefetch:
+        exclude_tags.append("description")
+    allowed_tools = [
+        tool for tool in all_tools if tool.name not in exclude_tools and not any(tag in exclude_tags for tag in tool.tags)
+    ]
+
+    # Register handlers
     @server.list_resources()
     async def handle_list_resources() -> list[types.Resource]:
-        logger.debug("Handling list_resources request")
         return [
             types.Resource(
                 uri=AnyUrl("memo://insights"),
@@ -151,255 +319,52 @@ async def main(
 
     @server.read_resource()
     async def handle_read_resource(uri: AnyUrl) -> str:
-        logger.debug(f"Handling read_resource request for URI: {uri}")
         if uri.scheme != "memo":
-            logger.error(f"Unsupported URI scheme: {uri.scheme}")
             raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
 
         path = str(uri).replace("memo://", "")
-        if not path or path != "insights":
-            logger.error(f"Unknown resource path: {path}")
+        if path != "insights":
             raise ValueError(f"Unknown resource path: {path}")
 
-        return db._synthesize_memo()
+        return db.get_memo()
 
     @server.list_prompts()
     async def handle_list_prompts() -> list[types.Prompt]:
-        logger.debug("Handling list_prompts request")
         return []
 
     @server.get_prompt()
     async def handle_get_prompt(name: str, arguments: dict[str, str] | None) -> types.GetPromptResult:
-        logger.debug(f"Handling get_prompt request for {name} with args {arguments}")
         raise ValueError(f"Unknown prompt: {name}")
 
     @server.call_tool()
+    @handle_tool_errors
     async def handle_call_tool(
         name: str, arguments: dict[str, Any] | None
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        """Handle tool execution requests"""
-        logger.info(f"Handling tool execution request for {name} with args {arguments}")
         if name in exclude_tools:
             return [types.TextContent(type="text", text=f"Tool {name} is excluded from this data connection")]
-        try:
-            match name:
-                case "list_tables":
-                    try:
-                        logger.info("Listing tables")
-                        results = db._execute_query(
-                            f"select table_catalog, table_schema, table_name, comment from {credentials.get('database')}.information_schema.tables where table_schema = '{credentials.get('schema').upper()}'"
-                        )
-                        logger.info("Received results: " + str(results))
-                        return [
-                            types.TextContent(
-                                type="text",
-                                text=yaml.dump(results, indent=2),
-                                artifacts=[{"type": "dataframe", "data": results}],
-                            )
-                        ]
-                    except Exception as e:
-                        logger.error(f"Error: {str(e)}")
-                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-                case "describe_table":
-                    try:
-                        if not arguments or "table_name" not in arguments:
-                            raise ValueError("Missing table_name argument")
-                        split_identifier = arguments["table_name"].split(".")
-                        table_name = split_identifier[-1].upper()
-                        schema_name = (split_identifier[-2] if len(split_identifier) > 1 else credentials.get("schema")).upper()
-                        database_name = (
-                            split_identifier[-3] if len(split_identifier) > 2 else credentials.get("database")
-                        ).upper()
-                        results = db._execute_query(
-                            f"select column_name, column_default, is_nullable, data_type, comment from {database_name}.information_schema.columns where table_schema = '{schema_name}' and table_name = '{table_name}'"
-                        )
-                        return [
-                            types.TextContent(
-                                type="text",
-                                text=yaml.dump(results, indent=2),
-                                artifacts=[{"type": "dataframe", "data": results}],
-                            )
-                        ]
-                    except Exception as e:
-                        logger.error(f"Error: {str(e)}")
-                case "read_query":
-                    try:
-                        assert not write_detector.analyze_query(arguments["query"])[
-                            "contains_write"
-                        ], "Calls to read_query should not contain write operations"
-                        results = db._execute_query(arguments["query"])
-                        MAX_RESULTS = 50
-                        truncate = len(results) > MAX_RESULTS
-                        truncated_results = results[:MAX_RESULTS]
-                        results_yaml = yaml.dump(truncated_results, indent=2)
-                        query_id = str(uuid.uuid4())
-                        results_text = (
-                            results_yaml
-                            + (
-                                f"\nResults of query have been truncated. There are {len(results) - MAX_RESULTS} more rows."
-                                if truncate
-                                else ""
-                            )
-                            + f"\nquery_id = {query_id}"
-                        )
-                        return [
-                            types.TextContent(
-                                type="text", text=results_text, artifacts=[{"type": "dataframe", "data": results}]
-                            )
-                        ]
-                    except Exception as e:
-                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-                case "append_insight":
-                    try:
-                        if not arguments or "insight" not in arguments:
-                            raise ValueError("Missing insight argument")
 
-                        db.insights.append(arguments["insight"])
-                        _ = db._synthesize_memo()
+        handler = next((tool.handler for tool in allowed_tools if tool.name == name), None)
+        if not handler:
+            raise ValueError(f"Unknown tool: {name}")
 
-                        # Notify clients that the memo resource has changed
-                        await server.request_context.session.send_resource_updated(AnyUrl("memo://insights"))
-
-                        return [types.TextContent(type="text", text="Insight added to memo")]
-                    except Exception as e:
-                        logger.error(f"Error: {str(e)}")
-                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-                case "write_query":
-                    try:
-                        if not allow_write:
-                            raise ValueError("Write operations are not allowed for this data connection")
-                        if arguments["query"].strip().upper().startswith("SELECT"):
-                            raise ValueError("SELECT queries are not allowed for write_query")
-                        results = db._execute_query(arguments["query"])
-                        return [types.TextContent(type="text", text=str(results))]
-                    except Exception as e:
-                        logger.error(f"Error: {str(e)}")
-                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-                case "create_table":
-                    try:
-                        if not allow_write:
-                            raise ValueError("Write operations are not allowed for this data connection")
-                        if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
-                            raise ValueError("Only CREATE TABLE statements are allowed")
-                        db._execute_query(arguments["query"])
-                        return [types.TextContent(type="text", text="Table created successfully")]
-                    except Exception as e:
-                        logger.error(f"Error: {str(e)}")
-                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-                case _:
-                    try:
-                        raise ValueError(f"Unknown tool: {name}")
-                    except Exception as e:
-                        logger.error(f"Error: {str(e)}")
-                        return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-
-        except Exception as e:
-            return [types.TextContent(type="text", text=f"Error: {str(e)}")]
-
-    if prefetch:
-        try:
-            logger.info("Prefetching table descriptions")
-            table_results = db._execute_query(
-                f"select table_name, comment from {credentials.get('database')}.information_schema.tables where table_schema = '{credentials.get('schema').upper()}'"
-            )
-            logger.debug("Received results")
-            logger.info("Prefetching column descriptions")
-            column_results = db._execute_query(
-                f"select table_name, column_name, data_type, comment from {credentials.get('database')}.information_schema.columns where table_schema = '{credentials.get('schema').upper()}'"
-            )
-            logger.debug("Received results")
-            tables_brief = {}
-            for row in table_results:
-                tables_brief[row["TABLE_NAME"]] = row
-                tables_brief[row["TABLE_NAME"]]["COLUMNS"] = {}
-            for row in column_results:
-                tables_brief[row["TABLE_NAME"]]["COLUMNS"][row["COLUMN_NAME"]] = row
-            tables_brief = yaml.dump(tables_brief, indent=2)
-            logger.debug(f"Generated tables brief: {tables_brief}")
-        except Exception as e:
-            tables_brief = f"Error prefetching table descriptions: {e}"
-            logger.error(tables_brief)
+        return await handler(arguments, db, write_detector, allow_write, server)
 
     @server.list_tools()
     async def handle_list_tools() -> list[types.Tool]:
-        """List available tools"""
-        write_tools = [
+        logger.info("Listing tools")
+        logger.error(f"Allowed tools: {allowed_tools}")
+        tools = [
             types.Tool(
-                name="write_query",
-                description="Execute an INSERT, UPDATE, or DELETE query on the Snowflake database",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "SQL query to execute"},
-                    },
-                    "required": ["query"],
-                },
-            ),
-            types.Tool(
-                name="create_table",
-                description="Create a new table in the Snowflake database",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "CREATE TABLE SQL statement"},
-                    },
-                    "required": ["query"],
-                },
-            ),
+                name=tool.name,
+                description=tool.description,
+                inputSchema=tool.input_schema,
+            )
+            for tool in allowed_tools
         ]
-        read_tools = [
-            types.Tool(
-                name="read_query",
-                description=(
-                    "Execute a SELECT query on the Snowflake database." + (" These are the tables available: " + tables_brief)
-                    if prefetch
-                    else ""
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "SELECT SQL query to execute"},
-                    },
-                    "required": ["query"],
-                },
-            ),
-            types.Tool(
-                name="list_tables",
-                description="List all tables in the Snowflake database",
-                inputSchema={
-                    "type": "object",
-                    "properties": {},
-                },
-            ),
-            types.Tool(
-                name="describe_table",
-                description="Get the schema information for a specific table",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "table_name": {"type": "string", "description": "Name of the table to describe"},
-                    },
-                    "required": ["table_name"],
-                },
-            ),
-            types.Tool(
-                name="append_insight",
-                description="Add a data insight to the memo",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "insight": {"type": "string", "description": "Data insight discovered from analysis"},
-                    },
-                    "required": ["insight"],
-                },
-            ),
-        ]
-        all_tools = read_tools + (write_tools if allow_write else [])
-        included_tools = [tool for tool in all_tools if tool.name not in exclude_tools]
-        if prefetch:
-            included_tools = [tool for tool in included_tools if tool.name not in ["describe_table", "list_tables"]]
-        return included_tools
+        return tools
 
+    # Start server
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         logger.info("Server running with stdio transport")
         await server.run(
