@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import json
 import logging
 from mcp.server.models import InitializationOptions
@@ -5,76 +6,112 @@ import mcp.types as types
 from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
 from pydantic import AnyUrl
-from typing import Any
+from typing import Any, Optional
 from snowflake.snowpark import Session
 import os
 from .write_detector import SQLWriteDetector
 import importlib.metadata
 import yaml
+import uuid
 
+# Configure logging
 logging.basicConfig(
-    level=logging.INFO,  # Set the log level
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )
-
 logger = logging.getLogger("mcp_snowflake_server")
-logger.info("Starting MCP Snowflake Server")
+
+
+@dataclass
+class DatabaseConfig:
+    database: str
+    schema: str
+    warehouse: str
+    connection_config: dict
+
+    def get_qualified_name(self, *parts: str) -> str:
+        """Create a fully qualified database object name"""
+        return ".".join(part.upper() for part in parts if part)
 
 
 class SnowflakeDB:
-    def __init__(self, connection_config: dict):
-        self.connection_config = connection_config
-        self.initialized = False
-        self.insights: list[str] = []
+    MAX_RESULTS = 50
 
-    def _init_database(self):
+    def __init__(self, config: DatabaseConfig):
+        self.config = config
+        self.session: Optional[Session] = None
+        self.insights: list[str] = []
+        self.initialized = False
+
+    def _init_database(self) -> None:
         """Initialize connection to the Snowflake database"""
         logger.debug("Initializing database connection")
         try:
-            self.session = Session.builder.configs(self.connection_config).create()
+            self.session = Session.builder.configs(self.config.connection_config).create()
+            self._set_context()
+            self.initialized = True
         except Exception as e:
-            raise ValueError(
-                f"Error connecting to Snowflake database. The credentials were likely incorrect, and the server will not be able to connect to the database: {e}"
-            )
-        self.session.sql("USE DATABASE " + self.connection_config.get("database").upper())
-        self.session.sql("USE SCHEMA " + self.connection_config.get("schema").upper())
-        self.session.sql("USE WAREHOUSE " + self.connection_config.get("warehouse").upper())
-        self.initialized = True
+            raise ValueError(f"Error connecting to Snowflake database: {e}")
 
-    def _synthesize_memo(self) -> str:
-        """Synthesizes data insights into a formatted memo"""
-        logger.debug(f"Synthesizing memo with {len(self.insights)} insights")
-        if not self.insights:
-            return "No data insights have been discovered yet."
+    def _set_context(self) -> None:
+        """Set the database context"""
+        for context_type, value in [
+            ("DATABASE", self.config.database),
+            ("SCHEMA", self.config.schema),
+            ("WAREHOUSE", self.config.warehouse),
+        ]:
+            self.session.sql(f"USE {context_type} {value.upper()}").collect()
 
-        insights = "\n".join(f"- {insight}" for insight in self.insights)
-
-        memo = "📊 Data Intelligence Memo 📊\n\n"
-        memo += "Key Insights Discovered:\n\n"
-        memo += insights
-
-        if len(self.insights) > 1:
-            memo += "\nSummary:\n"
-            memo += f"Analysis has revealed {len(self.insights)} key data insights that suggest opportunities for strategic optimization and growth."
-
-        logger.debug("Generated basic memo format")
-        return memo
-
-    def _execute_query(self, query: str) -> list[dict[str, Any]]:
-        """Execute a SQL query and return results as a list of dictionaries"""
+    def execute_query(self, query: str, truncate: bool = True) -> tuple[list[dict[str, Any]], str]:
+        """Execute a SQL query and return results with query ID"""
         if not self.initialized:
             self._init_database()
+
         logger.debug(f"Executing query: {query}")
         try:
             result = self.session.sql(query).to_pandas()
             result_rows = result.to_dict(orient="records")
-            single_line_query = query.replace("\n", " ")
-            logger.debug(f"Query {single_line_query} returned {len(result_rows)} rows")
-            return result_rows
+            query_id = str(uuid.uuid4())
+
+            if truncate:
+                truncated = len(result_rows) > self.MAX_RESULTS
+                result_rows = result_rows[: self.MAX_RESULTS]
+
+                truncation_msg = (
+                    f"\nResults of query have been truncated. There are {len(result_rows) - self.MAX_RESULTS} more rows."
+                    if truncated
+                    else ""
+                )
+                return result_rows, f"{truncation_msg}\nquery_id = {query_id}"
+
+            return result_rows, query_id
+
         except Exception as e:
             logger.error(f'Database error executing "{query}": {e}')
             raise
+
+    def synthesize_memo(self) -> str:
+        """Synthesize data insights into a formatted memo"""
+        logger.debug(f"Synthesizing memo with {len(self.insights)} insights")
+        if not self.insights:
+            return "No data insights have been discovered yet."
+
+        memo_parts = [
+            "📊 Data Intelligence Memo 📊\n",
+            "Key Insights Discovered:\n",
+            "\n".join(f"- {insight}" for insight in self.insights),
+        ]
+
+        if len(self.insights) > 1:
+            memo_parts.extend(
+                [
+                    "\nSummary:",
+                    f"Analysis has revealed {len(self.insights)} key data insights that suggest opportunities for strategic optimization and growth.",
+                ]
+            )
+
+        return "\n".join(memo_parts)
 
 
 async def main(
@@ -155,7 +192,9 @@ async def main(
                         logger.info("Received results: " + str(results))
                         return [
                             types.TextContent(
-                                type="text", text=yaml.dump(results, indent=2), artifact={"type": "dataframe", "data": results}
+                                type="text",
+                                text=yaml.dump(results, indent=2),
+                                artifacts=[{"type": "dataframe", "data": results}],
                             )
                         ]
                     except Exception as e:
@@ -176,7 +215,9 @@ async def main(
                         )
                         return [
                             types.TextContent(
-                                type="text", text=yaml.dump(results, indent=2), artifact={"type": "dataframe", "data": results}
+                                type="text",
+                                text=yaml.dump(results, indent=2),
+                                artifacts=[{"type": "dataframe", "data": results}],
                             )
                         ]
                     except Exception as e:
@@ -187,16 +228,24 @@ async def main(
                             "contains_write"
                         ], "Calls to read_query should not contain write operations"
                         results = db._execute_query(arguments["query"])
+                        MAX_RESULTS = 50
+                        truncate = len(results) > MAX_RESULTS
+                        truncated_results = results[:MAX_RESULTS]
+                        results_yaml = yaml.dump(truncated_results, indent=2)
+                        query_id = str(uuid.uuid4())
                         results_text = (
-                            yaml.dump(results, indent=2)
-                            if len(results) < 50
-                            else str(results[:50])
-                            + "\nResults of query have been truncated. There are "
-                            + str(len(results) - 50)
-                            + " more rows."
+                            results_yaml
+                            + (
+                                f"\nResults of query have been truncated. There are {len(results) - MAX_RESULTS} more rows."
+                                if truncate
+                                else ""
+                            )
+                            + f"\nquery_id = {query_id}"
                         )
                         return [
-                            types.TextContent(type="text", text=results_text, artifact={"type": "dataframe", "data": results})
+                            types.TextContent(
+                                type="text", text=results_text, artifacts=[{"type": "dataframe", "data": results}]
+                            )
                         ]
                     except Exception as e:
                         return [types.TextContent(type="text", text=f"Error: {str(e)}")]
