@@ -5,6 +5,7 @@ import os
 import uuid
 import yaml
 import importlib.metadata
+import time
 
 from mcp.server.models import InitializationOptions
 import mcp.types as types
@@ -29,10 +30,13 @@ def data_to_yaml(data: Any) -> str:
 
 
 class SnowflakeDB:
+    AUTH_EXPIRATION_TIME = 1800
+
     def __init__(self, connection_config: dict):
         self.connection_config = connection_config
         self.session = None
         self.insights: list[str] = []
+        self.auth_time = 0
 
     def _init_database(self):
         """Initialize connection to the Snowflake database"""
@@ -40,12 +44,13 @@ class SnowflakeDB:
             self.session = Session.builder.configs(self.connection_config).create()
             for component in ["database", "schema", "warehouse"]:
                 self.session.sql(f"USE {component.upper()} {self.connection_config[component].upper()}")
+            self.auth_time = time.time()
         except Exception as e:
             raise ValueError(f"Failed to connect to Snowflake database: {e}")
 
     def execute_query(self, query: str) -> list[dict[str, Any]]:
         """Execute a SQL query and return results as a list of dictionaries"""
-        if not self.session:
+        if not self.session or time.time() - self.auth_time > self.AUTH_EXPIRATION_TIME:
             self._init_database()
 
         logger.debug(f"Executing query: {query}")
