@@ -25,7 +25,7 @@ def main():
         required=False,
         default=[],
         nargs="+",
-        help="List of tools to exclude from the read_query tool description",
+        help="List of tools to exclude",
     )
 
     dotenv.load_dotenv()
