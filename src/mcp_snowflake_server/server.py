@@ -264,7 +264,7 @@ async def main(
         ),
         Tool(
             name="read_query",
-            description="Execute a SELECT query. The tables have the following columns: " + tables_brief,
+            description="Execute a SELECT query.",
             input_schema={
                 "type": "object",
                 "properties": {"query": {"type": "string", "description": "SELECT SQL query to execute"}},
@@ -325,19 +325,23 @@ async def main(
                 name="Data Insights Memo",
                 description="A living document of discovered data insights",
                 mimeType="text/plain",
-            )
+            ),
+            types.Resource(
+                uri=AnyUrl("context://tables"),
+                name="Tables",
+                description="Description of tables and columns in the database",
+                mimeType="text/plain",
+            ),
         ]
 
     @server.read_resource()
     async def handle_read_resource(uri: AnyUrl) -> str:
-        if uri.scheme != "memo":
-            raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
-
-        path = str(uri).replace("memo://", "")
-        if path != "insights":
-            raise ValueError(f"Unknown resource path: {path}")
-
-        return db.get_memo()
+        if str(uri) == "memo://insights":
+            return db.get_memo()
+        elif str(uri) == "context://tables":
+            return tables_brief
+        else:
+            raise ValueError(f"Unknown resource: {uri}")
 
     @server.list_prompts()
     async def handle_list_prompts() -> list[types.Prompt]:
