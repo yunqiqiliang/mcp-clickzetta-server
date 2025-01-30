@@ -1,16 +1,17 @@
+import importlib.metadata
+import json
 import logging
+import os
+import time
+import uuid
 from functools import wraps
 from typing import Any, Callable
-import os
-import uuid
-import yaml
-import importlib.metadata
-import time
 
-from mcp.server.models import InitializationOptions
-import mcp.types as types
-from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
+import mcp.types as types
+import yaml
+from mcp.server import NotificationOptions, Server
+from mcp.server.models import InitializationOptions
 from pydantic import AnyUrl, BaseModel
 from snowflake.snowpark import Session
 
@@ -113,8 +114,22 @@ async def handle_list_tables(arguments, db, *_):
         FROM {db.connection_config['database']}.information_schema.tables 
         WHERE table_schema = '{db.connection_config['schema'].upper()}'
     """
-    results, data_id = db.execute_query(query)
-    return [types.TextContent(type="text", text=data_to_yaml(results), artifacts=[{"type": "dataframe", "data": results}])]
+    data, data_id = db.execute_query(query)
+
+    output = {
+        "type": "data",
+        "data_id": data_id,
+        "data": data,
+    }
+    yaml_output = data_to_yaml(output)
+    json_output = json.dumps(output)
+    return [
+        types.TextContent(type="text", text=yaml_output),
+        types.EmbeddedResource(
+            type="resource",
+            resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
+        ),
+    ]
 
 
 async def handle_describe_table(arguments, db, *_):
@@ -131,30 +146,41 @@ async def handle_describe_table(arguments, db, *_):
         FROM {database_name}.information_schema.columns 
         WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'
     """
-    results, data_id = db.execute_query(query)
+    data, data_id = db.execute_query(query)
+
+    output = {
+        "type": "data",
+        "data_id": data_id,
+        "data": data,
+    }
+    yaml_output = data_to_yaml(output)
+    json_output = json.dumps(output)
     return [
-        types.TextContent(
-            type="text", text=data_to_yaml(results), artifacts=[{"type": "dataframe", "data": results, "data_id": data_id}]
-        )
+        types.TextContent(type="text", text=yaml_output),
+        types.EmbeddedResource(
+            type="resource",
+            resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
+        ),
     ]
 
 
 async def handle_read_query(arguments, db, write_detector, *_):
-    MAX_RESULTS = 50
     if write_detector.analyze_query(arguments["query"])["contains_write"]:
         raise ValueError("Calls to read_query should not contain write operations")
-
-    results, data_id = db.execute_query(arguments["query"])
-    truncate = len(results) > MAX_RESULTS
-    results_text = data_to_yaml(results[:MAX_RESULTS])
-    if truncate:
-        results_text += f"\nResults of query have been truncated. There are {len(results) - MAX_RESULTS} more rows."
-    results_text += f"\ndata_id = {data_id}"
-
+    data, data_id = db.execute_query(arguments["query"])
+    output = {
+        "type": "data",
+        "data_id": data_id,
+        "data": data,
+    }
+    yaml_output = data_to_yaml(output)
+    json_output = json.dumps(output)
     return [
-        types.TextContent(
-            type="text", text=results_text, artifacts=[{"type": "dataframe", "data": results, "data_id": data_id}]
-        )
+        types.TextContent(type="text", text=yaml_output),
+        types.EmbeddedResource(
+            type="resource",
+            resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
+        ),
     ]
 
 
@@ -208,9 +234,11 @@ async def prefetch_tables(db: SnowflakeDB, credentials: dict) -> str:
             tables_brief[row["TABLE_NAME"]] = {**row, "COLUMNS": {}}
 
         for row in column_results:
-            tables_brief[row["TABLE_NAME"]]["COLUMNS"][row["COLUMN_NAME"]] = row
+            row_without_table_name = row.copy()
+            del row_without_table_name["TABLE_NAME"]
+            tables_brief[row["TABLE_NAME"]]["COLUMNS"][row["COLUMN_NAME"]] = row_without_table_name
 
-        return data_to_yaml(tables_brief)
+        return tables_brief
 
     except Exception as e:
         logger.error(f"Error prefetching table descriptions: {e}")
@@ -238,7 +266,8 @@ async def main(
     server = Server("snowflake-manager")
     write_detector = SQLWriteDetector()
 
-    tables_brief = await prefetch_tables(db, credentials) if prefetch else ""
+    tables_info = await prefetch_tables(db, credentials)
+    tables_brief = data_to_yaml(tables_info) if prefetch else ""
 
     all_tools = [
         Tool(
@@ -319,27 +348,36 @@ async def main(
     # Register handlers
     @server.list_resources()
     async def handle_list_resources() -> list[types.Resource]:
-        return [
+        resources = [
             types.Resource(
                 uri=AnyUrl("memo://insights"),
                 name="Data Insights Memo",
                 description="A living document of discovered data insights",
                 mimeType="text/plain",
-            ),
-            types.Resource(
-                uri=AnyUrl("context://tables"),
-                name="Tables",
-                description="Description of tables and columns in the database",
-                mimeType="text/plain",
-            ),
+            )
         ]
+        table_brief_resources = [
+            types.Resource(
+                uri=AnyUrl(f"context://table/{table_name}"),
+                name=f"{table_name} table",
+                description=f"Description of the {table_name} table",
+                mimeType="text/plain",
+            )
+            for table_name in tables_info.keys()
+        ]
+        resources += table_brief_resources
+        return resources
 
     @server.read_resource()
     async def handle_read_resource(uri: AnyUrl) -> str:
         if str(uri) == "memo://insights":
             return db.get_memo()
-        elif str(uri) == "context://tables":
-            return tables_brief
+        elif str(uri).startswith("context://table"):
+            table_name = str(uri).split("/")[-1]
+            if table_name in tables_info:
+                return data_to_yaml(tables_info[table_name])
+            else:
+                raise ValueError(f"Unknown table: {table_name}")
         else:
             raise ValueError(f"Unknown resource: {uri}")
 
