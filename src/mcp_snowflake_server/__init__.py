@@ -17,16 +17,15 @@ def main():
     parser.add_argument("--log_level", required=False, default="INFO", help="Logging level")
     parser.add_argument(
         "--prefetch",
-        required=False,
-        default=True,
         action="store_true",
+        dest="prefetch",
+        default=True,
         help="Prefetch table descriptions (when enabled, list_tables and describe_table are disabled)",
     )
     parser.add_argument(
         "--no-prefetch",
-        required=False,
-        default=False,
         action="store_false",
+        dest="prefetch",
         help="Don't prefetch table descriptions",
     )
     parser.add_argument(
@@ -68,7 +67,7 @@ def main():
         "role": args.role,
     }
 
-    should_prefetch = args.prefetch and not args.no_prefetch
+    should_prefetch = args.prefetch
 
     asyncio.run(
         server.main(

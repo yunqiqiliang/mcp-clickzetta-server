@@ -261,12 +261,16 @@ async def main(
         logger.setLevel(log_level)
 
     logger.info("Starting Snowflake MCP Server")
+    logger.info("Allow write operations: %s", allow_write)
+    logger.info("Prefetch table descriptions: %s", prefetch)
+    logger.info("Excluded tools: %s", exclude_tools)
 
     db = SnowflakeDB(credentials)
     server = Server("snowflake-manager")
     write_detector = SQLWriteDetector()
 
-    tables_info = await prefetch_tables(db, credentials)
+    if prefetch:
+        tables_info = await prefetch_tables(db, credentials)
     tables_brief = data_to_yaml(tables_info) if prefetch else ""
 
     all_tools = [
@@ -344,6 +348,8 @@ async def main(
     allowed_tools = [
         tool for tool in all_tools if tool.name not in exclude_tools and not any(tag in exclude_tags for tag in tool.tags)
     ]
+
+    logger.info("Allowed tools: %s", [tool.name for tool in allowed_tools])
 
     # Register handlers
     @server.list_resources()
