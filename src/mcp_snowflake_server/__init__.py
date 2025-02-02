@@ -67,12 +67,15 @@ def main():
         "warehouse": args.warehouse,
         "role": args.role,
     }
+
+    should_prefetch = args.prefetch and not args.no_prefetch
+
     asyncio.run(
         server.main(
             allow_write=args.allow_write,
             credentials=credentials,
             log_dir=args.log_dir,
-            prefetch=args.prefetch,
+            prefetch=should_prefetch,
             log_level=args.log_level,
             exclude_tools=args.exclude_tools,
         )
