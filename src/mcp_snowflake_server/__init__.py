@@ -1,8 +1,10 @@
-from . import server
-import asyncio
 import argparse
-import dotenv
+import asyncio
 import os
+
+import dotenv
+
+from . import server
 
 
 def main():
@@ -19,6 +21,13 @@ def main():
         default=True,
         action="store_true",
         help="Prefetch table descriptions (when enabled, list_tables and describe_table are disabled)",
+    )
+    parser.add_argument(
+        "--no-prefetch",
+        required=False,
+        default=True,
+        action="store_false",
+        help="Don't prefetch table descriptions",
     )
     parser.add_argument(
         "--exclude_tools",
