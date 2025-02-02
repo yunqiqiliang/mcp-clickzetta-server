@@ -25,7 +25,7 @@ def main():
     parser.add_argument(
         "--no-prefetch",
         required=False,
-        default=True,
+        default=False,
         action="store_false",
         help="Don't prefetch table descriptions",
     )
