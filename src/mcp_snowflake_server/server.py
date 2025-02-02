@@ -213,7 +213,7 @@ async def handle_create_table(arguments, db, _, allow_write, __):
     return [types.TextContent(type="text", text=f"Table created successfully. data_id = {data_id}")]
 
 
-async def prefetch_tables(db: SnowflakeDB, credentials: dict) -> str:
+async def prefetch_tables(db: SnowflakeDB, credentials: dict) -> dict:
     """Prefetch table and column information"""
     try:
         logger.info("Prefetching table descriptions")
@@ -269,8 +269,7 @@ async def main(
     server = Server("snowflake-manager")
     write_detector = SQLWriteDetector()
 
-    if prefetch:
-        tables_info = await prefetch_tables(db, credentials)
+    tables_info = (await prefetch_tables(db, credentials)) if prefetch else {}
     tables_brief = data_to_yaml(tables_info) if prefetch else ""
 
     all_tools = [
