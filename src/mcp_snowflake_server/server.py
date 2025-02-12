@@ -247,7 +247,7 @@ async def prefetch_tables(db: SnowflakeDB, credentials: dict) -> dict:
 
 async def main(
     allow_write: bool = False,
-    credentials: dict = None,
+    connection_args: dict = None,
     log_dir: str = None,
     prefetch: bool = False,
     log_level: str = "INFO",
@@ -265,11 +265,11 @@ async def main(
     logger.info("Prefetch table descriptions: %s", prefetch)
     logger.info("Excluded tools: %s", exclude_tools)
 
-    db = SnowflakeDB(credentials)
+    db = SnowflakeDB(connection_args)
     server = Server("snowflake-manager")
     write_detector = SQLWriteDetector()
 
-    tables_info = (await prefetch_tables(db, credentials)) if prefetch else {}
+    tables_info = (await prefetch_tables(db, connection_args)) if prefetch else {}
     tables_brief = data_to_yaml(tables_info) if prefetch else ""
 
     all_tools = [

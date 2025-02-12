@@ -3,13 +3,15 @@ import asyncio
 import os
 
 import dotenv
+import snowflake.connector
 
 from . import server
 
 
-def main():
-    """Main entry point for the package."""
-    parser = argparse.ArgumentParser(description="Snowflake MCP Server")
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    # Add arguments
     parser.add_argument(
         "--allow_write", required=False, default=False, action="store_true", help="Allow write operations on the database"
     )
@@ -36,47 +38,69 @@ def main():
         help="List of tools to exclude",
     )
 
+    # First, get all the arguments we don't know about
+    args, unknown = parser.parse_known_args()
+
+    # Create a dictionary to store our key-value pairs
+    connection_args = {}
+
+    # Iterate through unknown args in pairs
+    for i in range(0, len(unknown), 2):
+        if i + 1 >= len(unknown):
+            break
+
+        key = unknown[i]
+        value = unknown[i + 1]
+
+        # Make sure it's a keyword argument (starts with --)
+        if key.startswith("--"):
+            key = key[2:]  # Remove the '--'
+            connection_args[key] = value
+
+    # Now we can add the known args to kwargs
+    server_args = {
+        "allow_write": args.allow_write,
+        "log_dir": args.log_dir,
+        "log_level": args.log_level,
+        "prefetch": args.prefetch,
+        "exclude_tools": args.exclude_tools,
+    }
+
+    return server_args, connection_args
+
+
+def main():
+    """Main entry point for the package."""
+
     dotenv.load_dotenv()
 
-    required = {
-        "account": os.getenv("SNOWFLAKE_ACCOUNT"),
-        "password": os.getenv("SNOWFLAKE_PASSWORD"),
-        "database": os.getenv("SNOWFLAKE_DATABASE"),
-        "user": os.getenv("SNOWFLAKE_USER"),
-        "schema": os.getenv("SNOWFLAKE_SCHEMA"),
-        "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
-        "role": os.getenv("SNOWFLAKE_ROLE"),
+    default_connection_args = snowflake.connector.connection.DEFAULT_CONFIGURATION
+
+    connection_args_from_env = {
+        k: os.getenv("SNOWFLAKE_" + k.upper())
+        for k in default_connection_args
+        if os.getenv("SNOWFLAKE_" + k.upper()) is not None
     }
 
-    parser.add_argument("--account", required=not required["account"], default=required["account"])
-    parser.add_argument("--password", required=not required["password"], default=required["password"])
-    parser.add_argument("--database", required=not required["database"], default=required["database"])
-    parser.add_argument("--user", required=not required["user"], default=required["user"])
-    parser.add_argument("--schema", required=not required["schema"], default=required["schema"])
-    parser.add_argument("--warehouse", required=not required["warehouse"], default=required["warehouse"])
-    parser.add_argument("--role", required=not required["role"], default=required["role"])
+    server_args, connection_args = parse_args()
 
-    args = parser.parse_args()
-    credentials = {
-        "account": args.account,
-        "password": args.password,
-        "database": args.database,
-        "user": args.user,
-        "schema": args.schema,
-        "warehouse": args.warehouse,
-        "role": args.role,
-    }
+    connection_args = {**connection_args_from_env, **connection_args}
 
-    should_prefetch = args.prefetch
+    assert (
+        "database" in connection_args
+    ), 'You must provide the account identifier as "--database" argument or "SNOWFLAKE_DATABASE" environment variable. This MCP server can only operate on a single database.'
+    assert (
+        "schema" in connection_args
+    ), 'You must provide the username as "--schema" argument or "SNOWFLAKE_SCHEMA" environment variable. This MCP server can only operate on a single schema.'
 
     asyncio.run(
         server.main(
-            allow_write=args.allow_write,
-            credentials=credentials,
-            log_dir=args.log_dir,
-            prefetch=should_prefetch,
-            log_level=args.log_level,
-            exclude_tools=args.exclude_tools,
+            connection_args=connection_args,
+            allow_write=server_args["allow_write"],
+            log_dir=server_args["log_dir"],
+            prefetch=server_args["prefetch"],
+            log_level=server_args["log_level"],
+            exclude_tools=server_args["exclude_tools"],
         )
     )
 
