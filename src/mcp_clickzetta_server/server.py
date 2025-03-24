@@ -13,7 +13,7 @@ import yaml
 from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 from pydantic import AnyUrl, BaseModel
-from clickzetta.zettapark import Session
+from clickzetta.zettapark.session import Session
 
 from .write_detector import SQLWriteDetector
 
@@ -43,7 +43,7 @@ class ClickzettaDB:
         """Initialize connection to the Clickzetta database"""
         try:
             self.session = Session.builder.configs(self.connection_config).create()
-            for component in ["workspace", "schema", "vcluster"]:
+            for component in [ "schema"]:
                 self.session.sql(f"USE {component.upper()} {self.connection_config[component].upper()}")
             self.auth_time = time.time()
         except Exception as e:
@@ -139,7 +139,7 @@ async def handle_describe_table(arguments, db, *_):
     split_identifier = arguments["table_name"].split(".")
     table_name = split_identifier[-1].upper()
     schema_name = (split_identifier[-2] if len(split_identifier) > 1 else db.connection_config["schema"]).upper()
-    workspace_name = (split_identifier[-3] if len(split_identifier) > 2 else db.connection_config["workspace"]).upper()
+    workspace_name = (split_identifier[-3] if len(split_identifier) > 2 else db.connection_config["table_catalog"]).upper()
 
     query = f"""
         SELECT column_name, column_default, is_nullable, data_type, comment 
