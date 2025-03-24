@@ -4,13 +4,13 @@ startCommand:
   configSchema:
     # JSON Schema defining the configuration options for the MCP.
      {
-        'service','' ,
-        'instance','',
-        'workspace', '',
+        'service',
+        'instance',
+        'workspace', 
         'schema','',
-        'username','', 
-        'password','' ,
-        'vcluster','' 
+        'username',
+        'password',
+        'vcluster'
      }
   commandFunction:
     # A function that produces the CLI command to start the MCP on stdio.
