@@ -133,14 +133,14 @@ def main():
     connection_args = {**connection_args_from_env, **connection_args}
 
     # 必须参数检查
-    assert 'workspace' in connection_args, (
-        'You must provide the database identifier as "--workspace" argument '
-        'or "CLICKZETTA_WORKSPACE" environment variable.'
-    )
-    assert 'schema' in connection_args, (
-        'You must provide the schema as "--schema" argument '
-        'or "CLICKZETTA_SCHEMA" environment variable.'
-    )
+    # assert 'workspace' in connection_args, (
+    #     'You must provide the database identifier as "--workspace" argument '
+    #     'or "CLICKZETTA_WORKSPACE" environment variable.'
+    # )
+    # assert 'schema' in connection_args, (
+    #     'You must provide the schema as "--schema" argument '
+    #     'or "CLICKZETTA_SCHEMA" environment variable.'
+    # )
 
     asyncio.run(
         server.main(
