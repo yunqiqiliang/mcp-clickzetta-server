@@ -115,8 +115,8 @@ def main():
         'schema',
         'username',
         'password',
+        'service',
         'instance',
-        'cluster',
         'vcluster'
     ]
 
