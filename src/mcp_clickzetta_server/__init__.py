@@ -111,13 +111,13 @@ def main():
 
     # 显式列出所有可能的连接参数键
     possible_connection_keys = [
-        'workspace', 
-        'schema',
-        'username',
-        'password',
-        'service',
-        'instance',
-        'vcluster'
+        '--workspace', 
+        '--schema',
+        '--username',
+        '--password',
+        '--service',
+        '--instance',
+        '--vcluster'
     ]
 
     # 从环境变量获取连接参数
