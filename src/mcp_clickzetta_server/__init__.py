@@ -3,7 +3,7 @@ import asyncio
 import os
 
 import dotenv
-import clickzetta.connector
+import clickzetta.connect
 
 from . import server
 
@@ -69,29 +69,78 @@ def parse_args():
     return server_args, connection_args
 
 
+# def main():
+#     """Main entry point for the package."""
+
+#     dotenv.load_dotenv()
+
+#     default_connection_args = clickzetta.connect.connection.DEFAULT_CONFIGURATION
+
+#     connection_args_from_env = {
+#         k: os.getenv("CLICKZETTA_" + k.upper())
+#         for k in default_connection_args
+#         if os.getenv("CLICKZETTA_" + k.upper()) is not None
+#     }
+
+#     server_args, connection_args = parse_args()
+
+#     connection_args = {**connection_args_from_env, **connection_args}
+
+#     assert (
+#         "workspace" in connection_args
+#     ), 'You must provide the account identifier as "--workspace" argument or "CLICKZETTA_WORKSPACE" environment variable. This MCP server can only operate on a single database.'
+#     assert (
+#         "schema" in connection_args
+#     ), 'You must provide the username as "--schema" argument or "CLICKZETTA_SCHEMA" environment variable. This MCP server can only operate on a single schema.'
+
+#     asyncio.run(
+#         server.main(
+#             connection_args=connection_args,
+#             allow_write=server_args["allow_write"],
+#             log_dir=server_args["log_dir"],
+#             prefetch=server_args["prefetch"],
+#             log_level=server_args["log_level"],
+#             exclude_tools=server_args["exclude_tools"],
+#         )
+#     )
+
 def main():
     """Main entry point for the package."""
-
+    
     dotenv.load_dotenv()
 
-    default_connection_args = clickzetta.connector.connection.DEFAULT_CONFIGURATION
+    # 显式列出所有可能的连接参数键
+    possible_connection_keys = [
+        'workspace', 
+        'schema',
+        'username',
+        'password',
+        'instance',
+        'cluster',
+        'vcluster'
+    ]
 
+    # 从环境变量获取连接参数
     connection_args_from_env = {
-        k: os.getenv("CLICKZETTA_" + k.upper())
-        for k in default_connection_args
-        if os.getenv("CLICKZETTA_" + k.upper()) is not None
+        k: os.getenv(f"CLICKZETTA_{k.upper()}") 
+        for k in possible_connection_keys
+        if os.getenv(f"CLICKZETTA_{k.upper()}") is not None
     }
 
     server_args, connection_args = parse_args()
 
+    # 合并环境变量参数和命令行参数
     connection_args = {**connection_args_from_env, **connection_args}
 
-    assert (
-        "workspace" in connection_args
-    ), 'You must provide the account identifier as "--workspace" argument or "CLICKZETTA_WORKSPACE" environment variable. This MCP server can only operate on a single database.'
-    assert (
-        "schema" in connection_args
-    ), 'You must provide the username as "--schema" argument or "CLICKZETTA_SCHEMA" environment variable. This MCP server can only operate on a single schema.'
+    # 必须参数检查
+    assert 'workspace' in connection_args, (
+        'You must provide the database identifier as "--workspace" argument '
+        'or "CLICKZETTA_WORKSPACE" environment variable.'
+    )
+    assert 'schema' in connection_args, (
+        'You must provide the schema as "--schema" argument '
+        'or "CLICKZETTA_SCHEMA" environment variable.'
+    )
 
     asyncio.run(
         server.main(
@@ -103,6 +152,7 @@ def main():
             exclude_tools=server_args["exclude_tools"],
         )
     )
+
 
 
 # Optionally expose other important items at package level
