@@ -3,7 +3,7 @@ import asyncio
 import os
 
 import dotenv
-import clickzetta.connect
+from clickzetta import connect
 
 from . import server
 
