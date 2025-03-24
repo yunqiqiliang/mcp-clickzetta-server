@@ -13,7 +13,7 @@ import yaml
 from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 from pydantic import AnyUrl, BaseModel
-from snowflake.snowpark import Session
+from clickzetta.zettapark import Session
 
 from .write_detector import SQLWriteDetector
 
@@ -23,14 +23,14 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler()],
 )
-logger = logging.getLogger("mcp_snowflake_server")
+logger = logging.getLogger("mcp_clickzetta_server")
 
 
 def data_to_yaml(data: Any) -> str:
     return yaml.dump(data, indent=2, sort_keys=False)
 
 
-class SnowflakeDB:
+class ClickzettaDB:
     AUTH_EXPIRATION_TIME = 1800
 
     def __init__(self, connection_config: dict):
@@ -40,14 +40,14 @@ class SnowflakeDB:
         self.auth_time = 0
 
     def _init_database(self):
-        """Initialize connection to the Snowflake database"""
+        """Initialize connection to the Clickzetta database"""
         try:
             self.session = Session.builder.configs(self.connection_config).create()
-            for component in ["database", "schema", "warehouse"]:
+            for component in ["workspace", "schema", "vcluster"]:
                 self.session.sql(f"USE {component.upper()} {self.connection_config[component].upper()}")
             self.auth_time = time.time()
         except Exception as e:
-            raise ValueError(f"Failed to connect to Snowflake database: {e}")
+            raise ValueError(f"Failed to connect to Clickzetta workspace/database: {e}")
 
     def execute_query(self, query: str) -> list[dict[str, Any]]:
         """Execute a SQL query and return results as a list of dictionaries"""
@@ -111,7 +111,7 @@ class Tool(BaseModel):
 async def handle_list_tables(arguments, db, *_):
     query = f"""
         SELECT table_catalog, table_schema, table_name, comment 
-        FROM {db.connection_config['database']}.information_schema.tables 
+        FROM {db.connection_config['workspace']}.information_schema.tables 
         WHERE table_schema = '{db.connection_config['schema'].upper()}'
     """
     data, data_id = db.execute_query(query)
@@ -124,7 +124,7 @@ async def handle_list_tables(arguments, db, *_):
     yaml_output = data_to_yaml(output)
     json_output = json.dumps(output)
     return [
-        types.TextContent(type="text", text=yaml_output),
+        types.TextContent(type="string", text=yaml_output),
         types.EmbeddedResource(
             type="resource",
             resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
@@ -139,11 +139,11 @@ async def handle_describe_table(arguments, db, *_):
     split_identifier = arguments["table_name"].split(".")
     table_name = split_identifier[-1].upper()
     schema_name = (split_identifier[-2] if len(split_identifier) > 1 else db.connection_config["schema"]).upper()
-    database_name = (split_identifier[-3] if len(split_identifier) > 2 else db.connection_config["database"]).upper()
+    workspace_name = (split_identifier[-3] if len(split_identifier) > 2 else db.connection_config["workspace"]).upper()
 
     query = f"""
         SELECT column_name, column_default, is_nullable, data_type, comment 
-        FROM {database_name}.information_schema.columns 
+        FROM {workspace_name}.information_schema.columns 
         WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'
     """
     data, data_id = db.execute_query(query)
@@ -213,19 +213,19 @@ async def handle_create_table(arguments, db, _, allow_write, __):
     return [types.TextContent(type="text", text=f"Table created successfully. data_id = {data_id}")]
 
 
-async def prefetch_tables(db: SnowflakeDB, credentials: dict) -> dict:
+async def prefetch_tables(db: ClickzettaDB, credentials: dict) -> dict:
     """Prefetch table and column information"""
     try:
         logger.info("Prefetching table descriptions")
         table_results, data_id = db.execute_query(
             f"""SELECT table_name, comment 
-                FROM {credentials['database']}.information_schema.tables 
+                FROM {credentials['workspace']}.information_schema.tables 
                 WHERE table_schema = '{credentials['schema'].upper()}'"""
         )
 
         column_results, data_id = db.execute_query(
             f"""SELECT table_name, column_name, data_type, comment 
-                FROM {credentials['database']}.information_schema.columns 
+                FROM {credentials['workspace']}.information_schema.columns 
                 WHERE table_schema = '{credentials['schema'].upper()}'"""
         )
 
@@ -256,17 +256,17 @@ async def main(
     # Setup logging
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
-        logger.handlers.append(logging.FileHandler(os.path.join(log_dir, "mcp_snowflake_server.log")))
+        logger.handlers.append(logging.FileHandler(os.path.join(log_dir, "mcp_clickzetta_server.log")))
     if log_level:
         logger.setLevel(log_level)
 
-    logger.info("Starting Snowflake MCP Server")
+    logger.info("Starting Clickzetta MCP Server")
     logger.info("Allow write operations: %s", allow_write)
     logger.info("Prefetch table descriptions: %s", prefetch)
     logger.info("Excluded tools: %s", exclude_tools)
 
-    db = SnowflakeDB(connection_args)
-    server = Server("snowflake-manager")
+    db = ClickzettaDB(connection_args)
+    server = Server("clickzetta-manager")
     write_detector = SQLWriteDetector()
 
     tables_info = (await prefetch_tables(db, connection_args)) if prefetch else {}
@@ -275,7 +275,7 @@ async def main(
     all_tools = [
         Tool(
             name="list_tables",
-            description="List all tables in the Snowflake database",
+            description="List all tables in the Clickzetta workspace/database",
             input_schema={
                 "type": "object",
                 "properties": {},
@@ -317,7 +317,7 @@ async def main(
         ),
         Tool(
             name="write_query",
-            description="Execute an INSERT, UPDATE, or DELETE query on the Snowflake database",
+            description="Execute an INSERT, UPDATE, or DELETE query on the Clickzetta workspace/database",
             input_schema={
                 "type": "object",
                 "properties": {"query": {"type": "string", "description": "SQL query to execute"}},
@@ -328,7 +328,7 @@ async def main(
         ),
         Tool(
             name="create_table",
-            description="Create a new table in the Snowflake database",
+            description="Create a new table in the Clickzetta workspace/database",
             input_schema={
                 "type": "object",
                 "properties": {"query": {"type": "string", "description": "CREATE TABLE SQL statement"}},
@@ -429,8 +429,8 @@ async def main(
             read_stream,
             write_stream,
             InitializationOptions(
-                server_name="snowflake",
-                server_version=importlib.metadata.version("mcp_snowflake_server"),
+                server_name="clickzetta",
+                server_version=importlib.metadata.version("mcp_clickzetta_server"),
                 capabilities=server.get_capabilities(
                     notification_options=NotificationOptions(),
                     experimental_capabilities={},

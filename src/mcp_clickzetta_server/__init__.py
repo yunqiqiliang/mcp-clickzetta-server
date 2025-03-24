@@ -3,7 +3,7 @@ import asyncio
 import os
 
 import dotenv
-import snowflake.connector
+import clickzetta.connector
 
 from . import server
 
@@ -74,12 +74,12 @@ def main():
 
     dotenv.load_dotenv()
 
-    default_connection_args = snowflake.connector.connection.DEFAULT_CONFIGURATION
+    default_connection_args = clickzetta.connector.connection.DEFAULT_CONFIGURATION
 
     connection_args_from_env = {
-        k: os.getenv("SNOWFLAKE_" + k.upper())
+        k: os.getenv("CLICKZETTA_" + k.upper())
         for k in default_connection_args
-        if os.getenv("SNOWFLAKE_" + k.upper()) is not None
+        if os.getenv("CLICKZETTA_" + k.upper()) is not None
     }
 
     server_args, connection_args = parse_args()
@@ -87,11 +87,11 @@ def main():
     connection_args = {**connection_args_from_env, **connection_args}
 
     assert (
-        "database" in connection_args
-    ), 'You must provide the account identifier as "--database" argument or "SNOWFLAKE_DATABASE" environment variable. This MCP server can only operate on a single database.'
+        "workspace" in connection_args
+    ), 'You must provide the account identifier as "--workspace" argument or "CLICKZETTA_WORKSPACE" environment variable. This MCP server can only operate on a single database.'
     assert (
         "schema" in connection_args
-    ), 'You must provide the username as "--schema" argument or "SNOWFLAKE_SCHEMA" environment variable. This MCP server can only operate on a single schema.'
+    ), 'You must provide the username as "--schema" argument or "CLICKZETTA_SCHEMA" environment variable. This MCP server can only operate on a single schema.'
 
     asyncio.run(
         server.main(

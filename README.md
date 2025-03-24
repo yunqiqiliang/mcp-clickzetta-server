@@ -1,10 +1,10 @@
-# Snowflake MCP Server
+# Clickzetta MCP Server
 
-[![smithery badge](https://smithery.ai/badge/mcp_snowflake_server)](https://smithery.ai/server/mcp_snowflake_server) [![PyPI - Version](https://img.shields.io/pypi/dm/mcp-snowflake-server?color&logo=pypi&logoColor=white&label=PyPI%20downloads)](https://pypi.org/project/mcp-snowflake-server/)
+[![smithery badge](https://smithery.ai/badge/mcp_clickzetta_server)](https://smithery.ai/server/mcp_clickzetta_server) [![PyPI - Version](https://img.shields.io/pypi/dm/mcp-clickzetta-server?color&logo=pypi&logoColor=white&label=PyPI%20downloads)](https://pypi.org/project/mcp-clickzetta-server/)
 
 
 ## Overview
-A Model Context Protocol (MCP) server implementation that provides database interaction with Snowflake. This server enables running SQL queries with tools and intereacting with a memo of data insights presented as a resource.
+A Model Context Protocol (MCP) server implementation that provides database interaction with Clickzetta. This server enables running SQL queries with tools and intereacting with a memo of data insights presented as a resource.
 
 ## Components
 
@@ -60,10 +60,10 @@ The server offers six core tools:
 
 ### Installing via Smithery
 
-To install Snowflake Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/mcp_snowflake_server):
+To install Clickzetta Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/mcp_clickzetta_server):
 
 ```bash
-npx -y @smithery/cli install mcp_snowflake_server --client claude
+npx -y @smithery/cli install mcp_clickzetta_server --client claude
 ```
 
 ### Installing via UVX
@@ -71,24 +71,24 @@ npx -y @smithery/cli install mcp_snowflake_server --client claude
 ```python
 # Add the server to your claude_desktop_config.json
 "mcpServers": {
-  "snowflake_pip": {
+  "clickzetta_pip": {
       "command": "uvx",
       "args": [
-          "mcp_snowflake_server",
-          "--account",
-          "the_account",
-          "--warehouse",
-          "the_warehouse",
+          "mcp_clickzetta_server",
+          "--service",
+          "the_service",
+          "--instance",
+          "the_vcluster",
+          "--instance",
+          "the_vcluster",
+          "--database",
+          "the_database",
+           "--schema",
+          "the_schema",
           "--user",
           "the_user",
           "--password",
           "their_password",
-          "--role",
-          "the_role"
-          "--database",
-          "the_database",
-          "--schema",
-          "the_schema",
           # Optionally: "--allow_write" (but not recommended)
           # Optionally: "--log_dir", "/absolute/path/to/logs"
           # Optionally: "--log_level", "DEBUG"/"INFO"/"WARNING"/"ERROR"/"CRITICAL"
@@ -102,27 +102,28 @@ npx -y @smithery/cli install mcp_snowflake_server --client claude
 ```python
 # Add the server to your claude_desktop_config.json
 "mcpServers": {
-  "snowflake_local": {
+  "clickzetta_local": {
       "command": "uv",
       "args": [
           "--directory",
-          "/absolute/path/to/mcp_snowflake_server",
+          "/absolute/path/to/mcp_clickzetta_server",
           "run",
-          "mcp_snowflake_server",
-          "--account",
-          "the_account",
-          "--warehouse",
-          "the_warehouse",
+          "mcp_clickzetta_server",
+          "mcp_clickzetta_server",
+          "--service",
+          "the_service",
+          "--instance",
+          "the_vcluster",
+          "--instance",
+          "the_vcluster",
+          "--database",
+          "the_database",
+           "--schema",
+          "the_schema",
           "--user",
           "the_user",
           "--password",
           "their_password",
-          "--role",
-          "the_role"
-          "--database",
-          "the_database",
-          "--schema",
-          "the_schema",
           # Optionally: "--allow_write" (but not recommended)
           # Optionally: "--log_dir", "/absolute/path/to/logs"
           # Optionally: "--log_level", "DEBUG"/"INFO"/"WARNING"/"ERROR"/"CRITICAL"
