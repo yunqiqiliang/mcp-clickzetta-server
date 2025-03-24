@@ -74,15 +74,16 @@ def main():
 
     dotenv.load_dotenv()
 
-    default_connection_args =  {
-        'service','', # Service Endpoint
-        'instance','',# Instance ID
-        'workspace', '',# Workspace/Database Name
-        'schema','',# Schema Name
-        'username','',# Login username
-        'password','',# Login password
-        'vcluster','',# Virtual Cluster Name
-     }
+    default_connection_args = {
+    "service": "",       # Service Endpoint
+    "instance": "",      # Instance ID
+    "workspace": "",     # Workspace/Database Name
+    "schema": "",        # Schema Name
+    "username": "",      # Login username
+    "password": "",      # Login password
+    "vcluster": ""       # Virtual Cluster Name
+    }
+
 
     connection_args_from_env = {
         k: os.getenv("CLICKZETTA_" + k.upper())

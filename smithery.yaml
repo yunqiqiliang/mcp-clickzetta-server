@@ -4,14 +4,14 @@ startCommand:
   configSchema:
     # JSON Schema defining the configuration options for the MCP.
      {
-        'service',
-        'instance',
-        'workspace', 
-        'schema','',
-        'username',
-        'password',
-        'vcluster'
-     }
+    "service": "",       # Service Endpoint
+    "instance": "",      # Instance ID
+    "workspace": "",     # Workspace/Database Name
+    "schema": "",        # Schema Name
+    "username": "",      # Login username
+    "password": "",      # Login password
+    "vcluster": ""       # Virtual Cluster Name
+    }
   commandFunction:
     # A function that produces the CLI command to start the MCP on stdio.
     |-
@@ -21,12 +21,12 @@ startCommand:
         "dist/index.js"
       ],
       "env": {
-        'service','' ,
-        'instance','',
-        'workspace', '',
-        'schema','',
-        'username','', 
-        'password','' ,
-        'vcluster','' 
+      "service": "",       # Service Endpoint
+      "instance": "",      # Instance ID
+      "workspace": "",     # Workspace/Database Name
+      "schema": "",        # Schema Name
+      "username": "",      # Login username
+      "password": "",      # Login password
+      "vcluster": ""       # Virtual Cluster Name
       }
     })
