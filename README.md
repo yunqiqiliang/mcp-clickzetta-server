@@ -165,7 +165,13 @@ When using with Claude, you can ask questions like:
 
 ##### Example Result
 
+- The result of "帮我从Clickzetta中读取数据，分析下在public这个schema下github_users表里每个公司的用户数。请用中文返回结果，并对结果进行数据可视化展现":
+
 ![image.png](./image/result1_image.png)
+
+- The result of "帮我从Clickzetta中读取数据，分析下在public这个schema下github_users表里每个位置 的用户数。请用中文返回结果，并对结果进行数据可视化展现":
+
+![image.png](./image/result2_image.png)
 
 #### Security Considerations
 This server:
