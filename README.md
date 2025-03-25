@@ -6,6 +6,8 @@
 ## Overview
 A Model Context Protocol (MCP) server implementation that provides database interaction with Clickzetta Lakehouse. This server enables running SQL queries with tools and intereacting with a memo of data insights presented as a resource.
 
+![image.gif](image/introduction.gif)
+
 ## Components
 
 ### Resources
@@ -149,6 +151,8 @@ uv run mcp_clickzetta_server
 
 - You can find your uv path by running which uv in your terminal
 - Save the server configuration
+
+![image.png](/image/claude_add_clickzetta_mcp_server.png)
 
 ##### Example Queries
 
