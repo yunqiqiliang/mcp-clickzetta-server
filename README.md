@@ -189,10 +189,10 @@ This server:
 
 ### Installing via Smithery(This way is tobe tested and verified)
 
-To install Clickzetta Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/mcp_clickzetta_server):
+To install Clickzetta Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@yunqiqiliang/mcp-clickzetta-server):
 
 ```bash
-npx -y @smithery/cli install mcp_clickzetta_server --client claude
+npx -y @smithery/cli@latest install @yunqiqiliang/mcp-clickzetta-server --client claude --key ******
 ```
 
 ### Installing via UVX(This way is tobe tested and verified)
