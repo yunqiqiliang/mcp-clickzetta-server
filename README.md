@@ -4,7 +4,7 @@
 
 
 ## Overview
-A Model Context Protocol (MCP) server implementation that provides database interaction with Clickzetta. This server enables running SQL queries with tools and intereacting with a memo of data insights presented as a resource.
+A Model Context Protocol (MCP) server implementation that provides database interaction with Clickzetta Lakehouse. This server enables running SQL queries with tools and intereacting with a memo of data insights presented as a resource.
 
 ## Components
 
@@ -165,7 +165,7 @@ When using with Claude, you can ask questions like:
 
 ##### Example Result
 
-![alt text](result1_image.png)
+![image](result1_image.png)
 
 #### Security Considerations
 This server:
