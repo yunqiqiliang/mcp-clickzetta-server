@@ -165,7 +165,7 @@ When using with Claude, you can ask questions like:
 
 ##### Example Result
 
-![image](result1_image.png)
+![image.png](./image/result1_image.png)
 
 #### Security Considerations
 This server:
