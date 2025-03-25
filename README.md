@@ -87,7 +87,7 @@ CLICKZETTA_VCLUSTER = ""
 
 ##### Usage
 
-#####Running with uv
+##### Running with uv
 
 After installing the package, you can run the server directly with:
 
@@ -131,6 +131,7 @@ uv run mcp_clickzetta_server
 - In Claude Desktop, go to Settings → MCP Servers
 - Add a new server with the full path to your uv executable:
 
+```json
 {
    "mcpServers": {
       "clickzetta-mcp-server" : {
@@ -144,6 +145,7 @@ uv run mcp_clickzetta_server
       }
    }
 }
+```
 
 - You can find your uv path by running which uv in your terminal
 - Save the server configuration
@@ -158,6 +160,12 @@ When using with Claude, you can ask questions like:
 - "Show me sample data from the REVENUE_BY_REGION view in the FINANCE schema"
 - "Run this SQL query: SELECT customer_id, SUM(order_total) as total_spend FROM SALES.ORDERS GROUP BY customer_id ORDER BY total_spend DESC LIMIT 10"
 - "Query the MARKETING database to find the top 5 performing campaigns by conversion rate"
+- "帮我从Clickzetta中读取数据，分析下在public这个schema下github_users表里每个公司的用户数。请用中文返回结果，并对结果进行数据可视化展现"
+- "帮我从Clickzetta中读取数据，分析下在public这个schema下github_event_issuesevent表里有多少条记录？"
+
+##### Example Result
+
+![alt text](result1_image.png)
 
 #### Security Considerations
 This server:
