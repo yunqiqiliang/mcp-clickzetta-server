@@ -170,6 +170,10 @@ When using with Claude, you can ask questions like:
 
 ##### Example Result
 
+- '帮我从Clickzetta数据源中读取数据，先分析基于public这个schema下github_users表里的数据可以做哪些分析？包括指标、统计、趋势、以及各种经典的用户分析模型比如用户价值分析、用户生命周期分析、用户segment等，然后根据这些分析内容生成一个分析报告的dashboard'
+
+![image.png](./image/result3_image.png)
+
 - The result of "帮我从Clickzetta中读取数据，分析下在public这个schema下github_users表里每个公司的用户数。请用中文返回结果，并对结果进行数据可视化展现":
 
 ![image.png](./image/result1_image.png)
@@ -177,6 +181,7 @@ When using with Claude, you can ask questions like:
 - The result of "帮我从Clickzetta中读取数据，分析下在public这个schema下github_users表里每个位置 的用户数。请用中文返回结果，并对结果进行数据可视化展现":
 
 ![image.png](./image/result2_image.png)
+
 
 #### Security Considerations
 This server:
