@@ -101,7 +101,7 @@ uv run mcp_clickzetta_server
 If this is the first time you are running the server, you could run the following command to acclerate the package installation:
 
 ```bash
-UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple/ uv run mcp-clickzetta-server
+UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple/ uv run mcp_clickzetta_server
 ```
 
 This will start the stdio-based MCP server, which can be connected to Claude Desktop or any MCP client that supports stdio communication.
