@@ -2,31 +2,57 @@
 startCommand:
   type: stdio
   configSchema:
+    
     # JSON Schema defining the configuration options for the MCP.
-     {
-    "service": "",       # Service Endpoint
-    "instance": "",      # Instance ID
-    "workspace": "",     # Workspace/Database Name
-    "schema": "",        # Schema Name
-    "username": "",      # Login username
-    "password": "",      # Login password
-    "vcluster": ""       # Virtual Cluster Name
-    }
+    type: object
+    required:
+      - --service
+      - --instance
+      - --workspace
+      - --schema
+      - --username
+      - --password
+      - --vcluster
+    properties:
+        --service:
+          type: string
+          description: Service Endpoint.
+        --instance:
+          type: string
+          description: Instance ID.
+        --workspace:
+          type: string
+          description: Workspace/Database Name.
+        --schema:
+          type: string
+          description: Schema Name.
+        --username:
+          type: string
+          description: Login username.
+        --password:
+          type: string
+          description: Login password.
+        --vcluster:
+          type: string
+          description: Virtual Cluster Name.
   commandFunction:
     # A function that produces the CLI command to start the MCP on stdio.
     |-
     (config) => ({
-      "command": "node",
+      "command": "npx",
       "args": [
-        "dist/index.js"
+        "-y",
+        "@smithery/cli@latest",
+        "run",
+        "@yunqiqiliang/mcp-clickzetta-server"
       ],
       "env": {
-      "service": "",       # Service Endpoint
-      "instance": "",      # Instance ID
-      "workspace": "",     # Workspace/Database Name
-      "schema": "",        # Schema Name
-      "username": "",      # Login username
-      "password": "",      # Login password
-      "vcluster": ""       # Virtual Cluster Name
+      CLICKZETTA_service: config.--service,
+      CLICKZETTA_instance: config.--instance,
+      CLICKZETTA_workspace: config.--workspace,
+      CLICKZETTA_schema: config.--schema,
+      CLICKZETTA_username: config.--username,
+      CLICKZETTA_password: config.--password,
+      CLICKZETTA_vcluster: config.--vcluster
       }
     })
