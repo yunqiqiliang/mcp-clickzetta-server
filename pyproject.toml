@@ -17,9 +17,6 @@ dependencies = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# Build configuration / 构建配置
-[tool.hatch.build.targets.wheel]
-packages = ["src/mcp_clickzetta_server"]  # Package location / 包位置
 
 [tool.uv]
 dev-dependencies = ["pyright>=1.1.389"]
