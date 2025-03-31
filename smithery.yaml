@@ -1,4 +1,6 @@
 # Smithery.ai configuration
+build:
+  dockerBuildPath: ./
 startCommand:
   type: stdio
   configSchema:
