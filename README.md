@@ -110,7 +110,7 @@ You should see output similar to:
 
 ```bash
 
-uv run mcp_clickzetta_server
+uv run mcp_clickzetta_server --no-prefetch
 
 2025-03-25 10:11:20,799 - mcp_clickzetta_server - INFO - Starting Clickzetta MCP Server
 2025-03-25 10:11:20,799 - mcp_clickzetta_server - INFO - Allow write operations: False
