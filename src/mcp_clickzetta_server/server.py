@@ -38,10 +38,15 @@ class ClickzettaDB:
         self.session = None
         self.insights: list[str] = []
         self.auth_time = 0
+        self.connection_config["hints"] = {
+            "sdk.job.timeout": 300,
+            "query_tag": "Query from MCP Server"
+        }
 
     def _init_database(self):
         """Initialize connection to the Clickzetta database"""
         try:
+            # logger.info(f"self.connection_config: {self.connection_config}")
             self.session = Session.builder.configs(self.connection_config).create()
             for component in [ "schema"]:
                 self.session.sql(f"USE {component.upper()} {self.connection_config[component].upper()}")
@@ -157,6 +162,27 @@ async def handle_describe_table(arguments, db, *_):
     json_output = json.dumps(output)
     return [
         types.TextContent(type="text", text=yaml_output),
+        types.EmbeddedResource(
+            type="resource",
+            resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
+        ),
+    ]
+
+async def handle_show_vclusters(arguments, db, *_):
+    query = f"""
+       SHOW VCLUSTERS;
+    """
+    data, data_id = db.execute_query(query)
+
+    output = {
+        "type": "data",
+        "data_id": data_id,
+        "data": data,
+    }
+    yaml_output = data_to_yaml(output)
+    json_output = json.dumps(output)
+    return [
+        types.TextContent(type="string", text=yaml_output),
         types.EmbeddedResource(
             type="resource",
             resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
@@ -293,6 +319,17 @@ async def main(
             },
             handler=handle_describe_table,
             tags=["description"],
+        ),
+        Tool(
+            name="show_vclusters",
+            description="Get the virtual cluster(vcluseter) list in current workspace",
+            input_schema={
+                "type": "object",
+                "properties": {},
+                "required": ["name", "vcluster_type", "state"],
+            },
+            handler=handle_show_vclusters,
+            tags=["show"],
         ),
         Tool(
             name="read_query",

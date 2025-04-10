@@ -81,7 +81,11 @@ def main():
     "schema": "",        # Schema Name
     "username": "",      # Login username
     "password": "",      # Login password
-    "vcluster": ""       # Virtual Cluster Name
+    "vcluster": "",      # Virtual Cluster Name
+    "hints": {
+        "sdk.job.timeout": 3,
+        "query_tag": "Query from MCP Server"
+    }
     }
 
 
