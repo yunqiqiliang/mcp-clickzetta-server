@@ -168,9 +168,12 @@ async def handle_describe_table(arguments, db, *_):
         ),
     ]
 
-async def handle_show_vclusters(arguments, db, *_):
+async def handle_show_object_list(arguments, db, *_):
+    if not arguments or "object_type" not in arguments:
+        raise ValueError("Missing object_type argument")
+    object_type = arguments["object_type"]
     query = f"""
-       SHOW VCLUSTERS;
+       SHOW {object_type};
     """
     data, data_id = db.execute_query(query)
 
@@ -188,6 +191,32 @@ async def handle_show_vclusters(arguments, db, *_):
             resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
         ),
     ]
+
+async def handle_desc_object(arguments, db, *_):
+    if not arguments or "object_type" not in arguments or "object_name" not in arguments:
+        raise ValueError("Missing object_type argument")
+    object_type = arguments["object_type"]
+    object_name = arguments["object_name"]
+    query = f"""
+       desc {object_type} extended{object_name};
+    """
+    data, data_id = db.execute_query(query)
+
+    output = {
+        "type": "data",
+        "data_id": data_id,
+        "data": data,
+    }
+    yaml_output = data_to_yaml(output)
+    json_output = json.dumps(output)
+    return [
+        types.TextContent(type="string", text=yaml_output),
+        types.EmbeddedResource(
+            type="resource",
+            resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
+        ),
+    ]
+
 
 
 async def handle_read_query(arguments, db, write_detector, *_):
@@ -321,15 +350,26 @@ async def main(
             tags=["description"],
         ),
         Tool(
-            name="show_vclusters",
-            description="Get the virtual cluster(vcluseter) list in current workspace",
+            name="show_object_list",
+            description="Get the list of specific object type in current workspace, supported objects list such as catalogs,vclusters, connections,volumes,schemas,tables,tables history, table streams,users,jobs,functions, etc.",
             input_schema={
                 "type": "object",
-                "properties": {},
-                "required": ["name", "vcluster_type", "state"],
+                "properties": {"object_type": {"type": "string", "description": "Type of the object to show"}},
+                "required": ["object_type"],
             },
-            handler=handle_show_vclusters,
+            handler=handle_show_object_list,
             tags=["show"],
+        ),
+        Tool(
+            name="desc_object",
+            description="Get the information of specific object, supported object type such as catalog,vcluster, connection,volume,schema,table, table stream,view, history, share, job, etc.",
+            input_schema={
+                "type": "object",
+                "properties": {"object_type": {"type": "string", "description": "Type of the object to desc"},"object_name": {"type": "string", "description": "Name of the object to desc"}},
+                "required": ["object_type", "object_name"],
+            },
+            handler=handle_desc_object,
+            tags=["description"],
         ),
         Tool(
             name="read_query",
