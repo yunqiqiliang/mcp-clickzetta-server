@@ -14,8 +14,10 @@ from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 from pydantic import AnyUrl, BaseModel
 from clickzetta.zettapark.session import Session
+import clickzetta.zettapark.types as T
 
 from .write_detector import SQLWriteDetector
+from .util import read_data_to_dataframe, generate_df_schema
 
 # Configure logging
 logging.basicConfig(
@@ -198,7 +200,7 @@ async def handle_desc_object(arguments, db, *_):
     object_type = arguments["object_type"]
     object_name = arguments["object_name"]
     query = f"""
-       desc {object_type} extended{object_name};
+       desc {object_type} extended {object_name};
     """
     data, data_id = db.execute_query(query)
 
@@ -217,6 +219,46 @@ async def handle_desc_object(arguments, db, *_):
         ),
     ]
 
+async def handle_import_data_into_table_from_url(arguments, db, *_):
+    if not arguments or "from_url" not in arguments or "dest_table" not in arguments:
+        raise ValueError("Missing object_type argument")
+    from_url = arguments["from_url"]
+    dest_table = arguments["dest_table"]
+    df_loaded = read_data_to_dataframe(from_url)
+    df_schema = generate_df_schema(df_loaded)
+    
+    query = f"""
+       drop table if exists {dest_table};
+    """
+    data, data_id = db.execute_query(query)
+    try:
+        zetta_df = db.session.create_dataframe(df_loaded, schema=df_schema)
+        zetta_df.write.mode("overwrite").save_as_table(dest_table)
+    except Exception as save_error:
+        print(f"Error load data to table {dest_table}: {save_error}")
+
+    # query = f"""
+    #    desc table extended {dest_table};
+    # """
+    # data, data_id = db.execute_query(query)
+    data = [
+        {"Result": "Successfully imported data into table", "Table": dest_table},
+    ]
+    data_id = str(uuid.uuid4())
+    output = {
+        "type": "data",
+        "data_id": data_id,
+        "data": data,
+    }
+    yaml_output = data_to_yaml(output)
+    json_output = json.dumps(output)
+    return [
+        types.TextContent(type="text", text=yaml_output),
+        types.EmbeddedResource(
+            type="resource",
+            resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
+        ),
+    ]
 
 
 async def handle_read_query(arguments, db, write_detector, *_):
@@ -370,6 +412,17 @@ async def main(
             },
             handler=handle_desc_object,
             tags=["description"],
+        ),
+        Tool(
+            name="import_data_into_table_from_url",
+            description="From url(include file path or https/http url) import data into table, if dest_table not exists, handler will auto create table before data import.",
+            input_schema={
+                "type": "object",
+                "properties": {"from_url": {"type": "string", "description": "data source url"},"dest_table": {"type": "string", "description": "Table tobe imported"}},
+                "required": ["from_url", "dest_table"],
+            },
+            handler=handle_import_data_into_table_from_url,
+            tags=["import-data"],
         ),
         Tool(
             name="read_query",
