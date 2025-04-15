@@ -41,20 +41,19 @@ startCommand:
     # A function that produces the CLI command to start the MCP on stdio.
     |-
     (config) => ({
-      "command": "npx",
+      command: 'docker',
       "args": [
-        "-y",
-        "@smithery/cli@latest",
-        "run",
-        "@yunqiqiliang/mcp-clickzetta-server"
-      ],
-      "env": {
-      CLICKZETTA_service: config.--service,
-      CLICKZETTA_instance: config.--instance,
-      CLICKZETTA_workspace: config.--workspace,
-      CLICKZETTA_schema: config.--schema,
-      CLICKZETTA_username: config.--username,
-      CLICKZETTA_password: config.--password,
-      CLICKZETTA_vcluster: config.--vcluster
-      }
+        'run',
+        '-i',
+        '--rm',
+        '-e', `CLICKZETTA_service=${config.--service}`,
+        '-e', `CLICKZETTA_instance=${config.--instance}`,
+        '-e', `CLICKZETTA_workspace=${config.--workspace}`,
+        '-e', `CLICKZETTA_schema=${config.--schema}`,
+        '-e', `CLICKZETTA_username=${config.--username}`,
+        '-e', `CLICKZETTA_password=${config.--password}`,
+        '-e', `CLICKZETTA_vcluster=${config.--vcluster}`
+        '@smithery/cli@latest',
+        '@yunqiqiliang/mcp-clickzetta-server'
+      ]
     })

@@ -13,6 +13,36 @@ import gzip
 import os
 from io import StringIO, BytesIO
 
+from xinference.client import Client as Xinference_Client
+import dotenv
+dotenv.load_dotenv()
+xinference_base_url = os.getenv("XINFERENCE_BASE_URL")
+
+def get_embedding_xin(
+    input_text: str,
+    base_url: str = xinference_base_url,
+    model_name: str = "bge-small-zh"
+) -> list:
+    """
+    获取文本的嵌入向量
+    
+    参数:
+    input_text (str): 要生成嵌入向量的文本
+    base_url (str): Xinference服务器地址，默认为本地服务
+    model_name (str): 要使用的模型名称，默认为bge-m3
+    
+    返回:
+    list: 文本的嵌入向量
+    """
+    # 使用别名创建客户端连接
+    client = Xinference_Client(base_url)  # 修改类名调用
+    
+    # 获取指定模型
+    model = client.get_model(model_name)
+    embedding = model.create_embedding(input_text)
+    # 生成并返回嵌入向量
+    return embedding['data'][0]['embedding']
+
 def read_data_to_dataframe(source: str, **kwargs) -> pd.DataFrame:
     """
     Reads data from a file hosted at a URL or a local file (CSV, TXT, Excel, Parquet, etc.) into a Pandas DataFrame.

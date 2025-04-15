@@ -72,7 +72,7 @@ cd mcp-clickzetta-server
 #### Install the package:
 
 ```bash
-uv pip install -e .
+uv pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple/
 ```
 
 #### Config credentials
