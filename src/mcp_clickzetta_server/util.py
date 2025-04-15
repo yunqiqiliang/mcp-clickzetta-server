@@ -17,11 +17,12 @@ from xinference.client import Client as Xinference_Client
 import dotenv
 dotenv.load_dotenv()
 xinference_base_url = os.getenv("XINFERENCE_BASE_URL")
+xinference_embedding_model_512 = os.getenv("XINFERENCE_EMBEDDING_MODEL_512")
 
 def get_embedding_xin(
     input_text: str,
     base_url: str = xinference_base_url,
-    model_name: str = "bge-small-zh"
+    model_name: str = xinference_embedding_model_512
 ) -> list:
     """
     获取文本的嵌入向量

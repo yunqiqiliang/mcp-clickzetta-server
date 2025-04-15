@@ -19,6 +19,9 @@ import clickzetta.zettapark.types as T
 from .write_detector import SQLWriteDetector
 from .util import read_data_to_dataframe, generate_df_schema, get_embedding_xin
 
+import dotenv
+
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -195,7 +198,7 @@ async def handle_show_object_list(arguments, db, *_):
     yaml_output = data_to_yaml(output)
     json_output = json.dumps(output)
     return [
-        types.TextContent(type="string", text=yaml_output),
+        types.TextContent(type="text", text=yaml_output),
         types.EmbeddedResource(
             type="resource",
             resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
@@ -220,7 +223,7 @@ async def handle_desc_object(arguments, db, *_):
     yaml_output = data_to_yaml(output)
     json_output = json.dumps(output)
     return [
-        types.TextContent(type="string", text=yaml_output),
+        types.TextContent(type="text", text=yaml_output),
         types.EmbeddedResource(
             type="resource",
             resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
@@ -228,17 +231,73 @@ async def handle_desc_object(arguments, db, *_):
     ]
 
 async def handle_vector_search(arguments, db, *_):
-    if not arguments or "table_name" not in arguments or "embedding_column_name" not in arguments or "answer_column_name" not in arguments or "question" not in arguments:
+    if not arguments or "question" not in arguments:
         raise ValueError("Missing object_type argument")
-    table_name = arguments["table_name"]
-    answer_column_name = arguments["answer_column_name"]
-    embedding_column_name = arguments["embedding_column_name"]
+    dotenv.load_dotenv()
+    if "table_name" not in arguments:
+        table_name = os.getenv("Similar_table_name")
+    elif "table_name" in arguments:
+        table_name = arguments["table_name"]
+    if "embedding_column_name" not in arguments:
+        embedding_column_name = os.getenv("Similar_embedding_column_name")
+    elif "embedding_column_name" in arguments:
+        embedding_column_name = arguments["embedding_column_name"]
+    if "content_column_name" not in arguments:
+        content_column_name = os.getenv("Similar_content_column_name")
+    elif "content_column_name" in arguments:
+        content_column_name = arguments["content_column_name"]
+    if "partition_scope" not in arguments:
+        partition_scope = os.getenv("Similar_partition_scope")
+    elif "partition_scope" in arguments:
+        partition_scope = arguments["partition_scope"]
+    
     question = arguments["question"]
     embedded_question = get_embedding_xin(question)
     query = f"""
-        SELECT {answer_column_name},L2_DISTANCE({embedding_column_name}, CAST({embedded_question} as VECTOR(512))) AS distance, "vector_search_l2" as search_method
+        SELECT {content_column_name},L2_DISTANCE({embedding_column_name}, CAST({embedded_question} as VECTOR(512))) AS distance, "vector_search_l2" as search_method
         FROM {table_name}
-        WHERE partition_date  >= '2024-01-01' and partition_date  <= '2024-01-15'
+        WHERE {partition_scope}
+        ORDER BY 2
+        LIMIT 5;
+        """
+    data, data_id = db.execute_query(query)
+
+    output = {
+        "type": "data",
+        "data_id": data_id,
+        "data": data,
+    }
+    yaml_output = data_to_yaml(output)
+    json_output = json.dumps(output)
+    return [
+        types.TextContent(type="text", text=yaml_output),
+        types.EmbeddedResource(
+            type="resource",
+            resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
+        ),
+    ]
+
+async def handle_match_all(arguments, db, *_):
+    if not arguments or "question" not in arguments:
+        raise ValueError("Missing object_type argument")
+    dotenv.load_dotenv()
+    if "table_name" not in arguments:
+        table_name = os.getenv("Similar_table_name")
+    elif "table_name" in arguments:
+        table_name = arguments["table_name"]
+    if "content_column_name" not in arguments:
+        content_column_name = os.getenv("Similar_content_column_name")
+    elif "content_column_name" in arguments:
+        content_column_name = arguments["content_column_name"]
+    if "partition_scope" not in arguments:
+        partition_scope = os.getenv("Similar_partition_scope")
+    elif "partition_scope" in arguments:
+        partition_scope = arguments["partition_scope"]
+    question = arguments["question"]
+    query = f"""
+        SELECT  {content_column_name}, 0 AS distance, "match_all_search" as search_method
+        FROM {table_name}
+        WHERE {partition_scope} and (MATCH_ALL({content_column_name}, '{question}' ))
         ORDER BY 2
         LIMIT 5;
         """
@@ -469,10 +528,21 @@ async def main(
             description="Perform vector search on a table using a question and return the top 5 closest answers",
             input_schema={
                 "type": "object",
-                "properties": {"table_name": {"type": "string", "description": "table name"},"answer_column_name": {"type": "string", "description": "column which stored answer"},"embedding_column_name": {"type": "string", "description": "column which stored embedding"},"question": {"type": "string", "description": "question to search"}},
-                "required": ["table_name", "answer_column_name", "embedding_column_name", "question"],
+                "properties": {"table_name": {"type": "string", "description": "table name"},"content_column_name": {"type": "string", "description": "column which stored content"},"embedding_column_name": {"type": "string", "description": "column which stored embedding"},"partition_scope": {"type": "string", "description": "sql code to define the partiion scope as part of where condition"} },
+                "required": ["question"],
             },
             handler=handle_vector_search,
+            tags=["query"],
+        ),
+        Tool(
+            name="match_all",
+            description="Perform search via match all function on a table using a question and return the top 5 answers",
+            input_schema={
+                "type": "object",
+                "properties": {"table_name": {"type": "string", "description": "table name"},"content_column_name": {"type": "string", "description": "column which stored content"},"question": {"type": "string", "description": "question to search"},"partition_scope": {"type": "string", "description": "sql code to define the partiion scope as part of where condition"}},
+                "required": ["question"],
+            },
+            handler=handle_match_all,
             tags=["query"],
         ),
         Tool(
