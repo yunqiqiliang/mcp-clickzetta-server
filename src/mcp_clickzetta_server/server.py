@@ -412,8 +412,8 @@ async def handle_append_insight(arguments, db, _, __, server):
 
 
 async def handle_write_query(arguments, db, _, allow_write, __):
-    # if not allow_write:
-    #     raise ValueError("Write operations are not allowed for this data connection")
+    if not allow_write:
+        raise ValueError("Write operations are not allowed for this data connection")
     if arguments["query"].strip().upper().startswith("SELECT"):
         raise ValueError("SELECT queries are not allowed for write_query")
 
@@ -422,8 +422,8 @@ async def handle_write_query(arguments, db, _, allow_write, __):
 
 
 async def handle_create_table(arguments, db, _, allow_write, __):
-    # if not allow_write:
-    #     raise ValueError("Write operations are not allowed for this data connection")
+    if not allow_write:
+        raise ValueError("Write operations are not allowed for this data connection")
     if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
         raise ValueError("Only CREATE TABLE statements are allowed")
 
@@ -431,8 +431,8 @@ async def handle_create_table(arguments, db, _, allow_write, __):
     return [types.TextContent(type="text", text=f"Table created successfully. data_id = {data_id}")]
 
 async def handle_create_table_with_prompt(arguments, db, _, allow_write, __):
-    # if not allow_write:
-    #     raise ValueError("Write operations are not allowed for this data connection")
+    if not allow_write:
+        raise ValueError("Write operations are not allowed for this data connection")
     if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
         raise ValueError("Only CREATE TABLE statements are allowed")
     # 检查用户输入的参数
