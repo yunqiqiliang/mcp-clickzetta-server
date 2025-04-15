@@ -661,6 +661,9 @@ async def main(
             tags=["create"],
         )
     ]
+    server.prompts = {
+        "create_table_with_prompt": PROMPTS["create_table_with_prompt"],
+    }
 
     exclude_tags = []
     if not allow_write:
