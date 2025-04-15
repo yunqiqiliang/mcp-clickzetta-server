@@ -86,6 +86,12 @@ CLICKZETTA_INSTANCE = ""
 CLICKZETTA_WORKSPACE = ""
 CLICKZETTA_SCHEMA = ""
 CLICKZETTA_VCLUSTER = ""
+XINFERENCE_BASE_URL = "http://********:9998"
+XINFERENCE_EMBEDDING_MODEL_512 = "bge-small-zh"
+Similar_table_name = "github_event_issuesevent_embedding.github_event_issuesevent_embedding_512"
+Similar_embedding_column_name = "issue_body_embedding"
+Similar_content_column_name = "issue_body"
+Similar_partition_scope = "partition_date  >= '2024-01-01' and partition_date  <= '2024-01-15'"
 ```
 
 ##### Usage
