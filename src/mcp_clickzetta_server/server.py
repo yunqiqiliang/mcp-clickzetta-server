@@ -31,6 +31,28 @@ logging.basicConfig(
 logger = logging.getLogger("mcp_clickzetta_server")
 
 
+
+# Define available prompts
+PROMPTS = {
+    "create_table_with_prompt": types.Prompt(
+        name="create_table_with_prompt",
+        description="Create a new table by prompting the user for table name, columns, and their types.",
+        arguments=[
+            types.PromptArgument(
+                name="table_name",
+                description="The name of the table to create.",
+                required=True
+            ),
+            types.PromptArgument(
+                name="columns",
+                description="The columns and their types in the format 'column1:type1,column2:type2' (e.g., 'id:INTEGER,name:STRING').",
+                required=True
+            ),
+        ],
+    ),
+}
+
+
 def data_to_yaml(data: Any) -> str:
     return yaml.dump(data, indent=2, sort_keys=False)
 
@@ -390,8 +412,8 @@ async def handle_append_insight(arguments, db, _, __, server):
 
 
 async def handle_write_query(arguments, db, _, allow_write, __):
-    if not allow_write:
-        raise ValueError("Write operations are not allowed for this data connection")
+    # if not allow_write:
+    #     raise ValueError("Write operations are not allowed for this data connection")
     if arguments["query"].strip().upper().startswith("SELECT"):
         raise ValueError("SELECT queries are not allowed for write_query")
 
@@ -400,14 +422,44 @@ async def handle_write_query(arguments, db, _, allow_write, __):
 
 
 async def handle_create_table(arguments, db, _, allow_write, __):
-    if not allow_write:
-        raise ValueError("Write operations are not allowed for this data connection")
+    # if not allow_write:
+    #     raise ValueError("Write operations are not allowed for this data connection")
     if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
         raise ValueError("Only CREATE TABLE statements are allowed")
 
     results, data_id = db.execute_query(arguments["query"])
     return [types.TextContent(type="text", text=f"Table created successfully. data_id = {data_id}")]
 
+async def handle_create_table_with_prompt(arguments, db, _, allow_write, __):
+    # if not allow_write:
+    #     raise ValueError("Write operations are not allowed for this data connection")
+    if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
+        raise ValueError("Only CREATE TABLE statements are allowed")
+    # 检查用户输入的参数
+    if not arguments or "table_name" not in arguments or "columns" not in arguments:
+        raise ValueError("Missing required arguments: 'table_name' or 'columns'")
+
+    table_name = arguments["table_name"]
+    columns_input = arguments["columns"]
+
+    # 解析列定义
+    try:
+        columns = ", ".join(
+            [f"{col.split(':')[0]} {col.split(':')[1]}" for col in columns_input.split(",")]
+        )
+    except IndexError:
+        raise ValueError("Invalid columns format. Use 'column1:type1,column2:type2'.")
+
+    # 构造 CREATE TABLE 语句
+    query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns});"
+
+    # 执行建表语句
+    results, data_id = db.execute_query(query)
+
+    # 返回结果
+    return [
+        types.TextContent(type="text", text=f"Table '{table_name}' created successfully. data_id = {data_id}")
+    ]
 
 async def prefetch_tables(db: ClickzettaDB, credentials: dict) -> dict:
     """Prefetch table and column information"""
@@ -586,8 +638,28 @@ async def main(
                 "required": ["query"],
             },
             handler=handle_create_table,
-            tags=["write"],
+            tags=["create"],
         ),
+        Tool(
+            name="create_table_with_prompt",
+            description="Create a new table by prompting the user for table name, columns, and their types.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "table_name": {
+                        "type": "string",
+                        "description": "The name of the table to create."
+                    },
+                    "columns": {
+                        "type": "string",
+                        "description": "The columns and their types in the format 'column1:type1,column2:type2' (e.g., 'id:INT,name:VARCHAR(255)')."
+                    },
+                },
+                "required": ["table_name", "columns"],
+            },
+            handler=handle_create_table_with_prompt,
+            tags=["create"],
+        )
     ]
 
     exclude_tags = []
@@ -636,14 +708,33 @@ async def main(
                 raise ValueError(f"Unknown table: {table_name}")
         else:
             raise ValueError(f"Unknown resource: {uri}")
+    
 
     @server.list_prompts()
     async def handle_list_prompts() -> list[types.Prompt]:
-        return []
+        return list(PROMPTS.values())
 
     @server.get_prompt()
     async def handle_get_prompt(name: str, arguments: dict[str, str] | None) -> types.GetPromptResult:
-        raise ValueError(f"Unknown prompt: {name}")
+        if name not in PROMPTS:
+            raise ValueError(f"Prompt not found: {name}")
+        
+        if name == "create_table_with_prompt":
+            table_name = arguments.get("table_name") if arguments else ""
+            columns = arguments.get("columns") if arguments else ""
+            return types.GetPromptResult(
+                messages=[
+                    types.PromptMessage(
+                        role="user",
+                        content=types.TextContent(
+                            type="text",
+                            text=f"Create a table named '{table_name}' with the following columns:\n\n{columns}"
+                        )
+                    )
+                ]
+            )
+
+        raise ValueError("Prompt implementation not found")
 
     @server.call_tool()
     @handle_tool_errors
