@@ -124,6 +124,8 @@ The server offers the following core tools:
   - `question` (string): The question to search.
 - **Returns**: Search results.
 
+#### Knowledge Search Tools
+
 ##### `get_knowledge_about_how_to_do_something`
 - **Description**: Provide guidance on how to perform specific tasks, such as analyzing slow queries, creating tables, or managing storage connections.
 - **Input**:
