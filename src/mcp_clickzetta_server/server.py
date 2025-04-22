@@ -1,3 +1,4 @@
+import datetime
 import importlib.metadata
 import json
 import logging
@@ -6,6 +7,9 @@ import time
 import uuid
 from functools import wraps
 from typing import Any, Callable
+import decimal
+import pandas as pd
+
 
 import mcp.server.stdio
 import mcp.types as types
@@ -17,10 +21,15 @@ from clickzetta.zettapark.session import Session
 import clickzetta.zettapark.types as T
 
 from .write_detector import SQLWriteDetector
-from .util import read_data_to_dataframe, generate_df_schema, get_embedding_xin
+from .util import read_data_from_url_or_file_into_dataframe, generate_df_schema, get_embedding_xin,connect_to_database_and_read_data_from_table_into_dataframe
+from .prompts import PROMPTS
+from .knowledges import KNOWLEDGES
+from .samples import SAMPLES
 
 import dotenv
 
+# 加载 samples 数据
+samples_sql = SAMPLES
 
 # Configure logging
 logging.basicConfig(
@@ -30,28 +39,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger("mcp_clickzetta_server")
 
+def convert_df_to_dict(data: pd.DataFrame) -> list[dict[str, Any]]:
+    # Convert Timestamp, date, and Decimal objects to strings for JSON serialization compatibility
+    # Convert the data to a pandas DataFrame for efficient processing
+    df = pd.DataFrame(data)
 
+    # Apply type-specific transformations
+    df = df.applymap(
+        lambda value: value.isoformat() if isinstance(value, (datetime.datetime, datetime.date))
+        else str(value) if isinstance(value, (decimal.Decimal, float))
+        else value
+    )
 
-# Define available prompts
-PROMPTS = {
-    "create_table_with_prompt": types.Prompt(
-        name="create_table_with_prompt",
-        description="Create a new table by prompting the user for table name, columns, and their types.",
-        arguments=[
-            types.PromptArgument(
-                name="table_name",
-                description="The name of the table to create.",
-                required=True
-            ),
-            types.PromptArgument(
-                name="columns",
-                description="The columns and their types in the format 'column1:type1,column2:type2' (e.g., 'id:INTEGER,name:STRING').",
-                required=True
-            ),
-        ],
-    ),
-}
+    # Convert the DataFrame back to a list of dictionaries
+    data = df.to_dict(orient="records")
 
+    return data
 
 def data_to_yaml(data: Any) -> str:
     return yaml.dump(data, indent=2, sort_keys=False)
@@ -152,9 +155,12 @@ async def handle_list_tables(arguments, db, *_):
     query = f"""
         SELECT table_catalog, table_schema, table_name, comment 
         FROM {db.connection_config['workspace']}.information_schema.tables 
-        WHERE table_schema = '{db.connection_config['schema'].upper()}'
+        WHERE table_catalog = '{db.connection_config['workspace'].lower()}' AND table_schema = '{db.connection_config['schema'].lower()}'
     """
     data, data_id = db.execute_query(query)
+
+    # Convert the DataFrame back to a list of dictionaries
+    data = convert_df_to_dict(data)
 
     output = {
         "type": "data",
@@ -176,17 +182,15 @@ async def handle_describe_table(arguments, db, *_):
     if not arguments or "table_name" not in arguments:
         raise ValueError("Missing table_name argument")
 
-    split_identifier = arguments["table_name"].split(".")
-    table_name = split_identifier[-1].upper()
-    schema_name = (split_identifier[-2] if len(split_identifier) > 1 else db.connection_config["schema"]).upper()
-    workspace_name = (split_identifier[-3] if len(split_identifier) > 2 else db.connection_config["table_catalog"]).upper()
-
+    table_name = arguments["table_name"]
+   
     query = f"""
-        SELECT column_name, column_default, is_nullable, data_type, comment 
-        FROM {workspace_name}.information_schema.columns 
-        WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'
+        DESC TABLE EXTENDED {table_name};
     """
     data, data_id = db.execute_query(query)
+
+    # Convert the DataFrame back to a list of dictionaries
+    data = convert_df_to_dict(data)
 
     output = {
         "type": "data",
@@ -212,6 +216,9 @@ async def handle_show_object_list(arguments, db, *_):
     """
     data, data_id = db.execute_query(query)
 
+    # Convert the DataFrame back to a list of dictionaries
+    data = convert_df_to_dict(data)
+
     output = {
         "type": "data",
         "data_id": data_id,
@@ -236,6 +243,9 @@ async def handle_desc_object(arguments, db, *_):
        desc {object_type} extended {object_name};
     """
     data, data_id = db.execute_query(query)
+
+    # Convert the DataFrame back to a list of dictionaries
+    data = convert_df_to_dict(data)
 
     output = {
         "type": "data",
@@ -284,6 +294,9 @@ async def handle_vector_search(arguments, db, *_):
         """
     data, data_id = db.execute_query(query)
 
+    # Convert the DataFrame back to a list of dictionaries
+    data = convert_df_to_dict(data)
+
     output = {
         "type": "data",
         "data_id": data_id,
@@ -325,6 +338,9 @@ async def handle_match_all(arguments, db, *_):
         """
     data, data_id = db.execute_query(query)
 
+    # Convert the DataFrame back to a list of dictionaries
+    data = convert_df_to_dict(data)
+
     output = {
         "type": "data",
         "data_id": data_id,
@@ -345,7 +361,7 @@ async def handle_import_data_into_table_from_url(arguments, db, *_):
         raise ValueError("Missing object_type argument")
     from_url = arguments["from_url"]
     dest_table = arguments["dest_table"]
-    df_loaded = read_data_to_dataframe(from_url)
+    df_loaded = read_data_from_url_or_file_into_dataframe(from_url)
     df_schema = generate_df_schema(df_loaded)
     
     query = f"""
@@ -382,10 +398,113 @@ async def handle_import_data_into_table_from_url(arguments, db, *_):
     ]
 
 
+async def handle_import_data_into_table_from_database(arguments, db, *_):
+    """
+    Handle importing data from a database table into another table in the workspace.
+
+    Args:
+        arguments (dict): A dictionary containing the connection parameters and table details.
+        db: The database object for executing queries.
+    """
+    # Supported database types and their required parameters
+    db_type_required_params = {
+        "mysql": ["host", "port", "database", "username", "password", "source_table", "dest_table"],
+        "postgresql": ["host", "port", "database", "username", "password", "source_table", "dest_table"],
+        "sqlite": ["database", "source_table", "dest_table"],  # SQLite only requires the database file path
+        "mssql": ["host", "port", "database", "username", "password", "source_table", "dest_table"],
+        "oracle": ["host", "port", "database", "username", "password", "source_table", "dest_table"]
+    }
+
+    # Validate db_type
+    if "db_type" not in arguments:
+        raise ValueError("Missing required argument: 'db_type'")
+    db_type = arguments["db_type"]
+    if db_type not in db_type_required_params:
+        raise ValueError(f"Unsupported database type '{db_type}'. Supported types are: {', '.join(db_type_required_params.keys())}")
+
+    # Validate required arguments for the given db_type
+    required_args = db_type_required_params[db_type]
+    missing_args = [arg for arg in required_args if arg not in arguments]
+    if missing_args:
+        raise ValueError(f"Missing required arguments for database type '{db_type}': {', '.join(missing_args)}")
+
+    # Extract connection parameters and table details based on db_type
+    if db_type == "sqlite":
+        # SQLite-specific parameters
+        database = arguments["database"]
+        source_table = arguments["source_table"]
+        dest_table = arguments["dest_table"]
+        host = port = username = password = None  # Not required for SQLite
+    else:
+        # Parameters for other database types (MySQL, PostgreSQL, MSSQL, Oracle)
+        host = arguments["host"]
+        port = arguments["port"]
+        database = arguments["database"]
+        username = arguments["username"]
+        password = arguments["password"]
+        source_table = arguments["source_table"]
+        dest_table = arguments["dest_table"]
+
+    # Connect to the source database and read data into a DataFrame
+    try:
+        query = f"SELECT * FROM {source_table};"
+        df_loaded = connect_to_database_and_read_data_from_table_into_dataframe(
+            db_type=db_type,
+            host=host,
+            port=port,
+            database=database,
+            username=username,
+            password=password,
+            table_name=source_table,
+        )
+    except Exception as connection_error:
+        raise RuntimeError(f"Failed to connect to the database or read data from table '{source_table}'. Error: {connection_error}")
+
+    # Generate schema for the DataFrame
+    df_schema = generate_df_schema(df_loaded)
+
+    # Drop the destination table if it exists
+    drop_query = f"DROP TABLE IF EXISTS {dest_table};"
+    try:
+        db.execute_query(drop_query)
+    except Exception as drop_error:
+        raise RuntimeError(f"Failed to drop table '{dest_table}'. Error: {drop_error}")
+
+    # Save the DataFrame into the destination table
+    try:
+        zetta_df = db.session.create_dataframe(df_loaded, schema=df_schema)
+        zetta_df.write.mode("overwrite").save_as_table(dest_table)
+    except Exception as save_error:
+        raise RuntimeError(f"Error loading data into table '{dest_table}': {save_error}")
+
+    # Prepare success response
+    data = [
+        {"Result": "Successfully imported data into table", "Table": dest_table},
+    ]
+    data_id = str(uuid.uuid4())
+    output = {
+        "type": "data",
+        "data_id": data_id,
+        "data": data,
+    }
+    yaml_output = data_to_yaml(output)
+    json_output = json.dumps(output)
+
+    return [
+        types.TextContent(type="text", text=yaml_output),
+        types.EmbeddedResource(
+            type="resource",
+            resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
+        ),
+    ]
+
 async def handle_read_query(arguments, db, write_detector, *_):
     if write_detector.analyze_query(arguments["query"])["contains_write"]:
         raise ValueError("Calls to read_query should not contain write operations")
     data, data_id = db.execute_query(arguments["query"])
+    
+    # Convert the DataFrame back to a list of dictionaries
+    data = convert_df_to_dict(data)
     output = {
         "type": "data",
         "data_id": data_id,
@@ -412,8 +531,8 @@ async def handle_append_insight(arguments, db, _, __, server):
 
 
 async def handle_write_query(arguments, db, _, allow_write, __):
-    if not allow_write:
-        raise ValueError("Write operations are not allowed for this data connection")
+    # if not allow_write:
+    #     raise ValueError("Write operations are not allowed for this data connection")
     if arguments["query"].strip().upper().startswith("SELECT"):
         raise ValueError("SELECT queries are not allowed for write_query")
 
@@ -422,17 +541,28 @@ async def handle_write_query(arguments, db, _, allow_write, __):
 
 
 async def handle_create_table(arguments, db, _, allow_write, __):
-    if not allow_write:
-        raise ValueError("Write operations are not allowed for this data connection")
+    # if not allow_write:
+    #     raise ValueError("Write operations are not allowed for this data connection")
     if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
         raise ValueError("Only CREATE TABLE statements are allowed")
 
     results, data_id = db.execute_query(arguments["query"])
     return [types.TextContent(type="text", text=f"Table created successfully. data_id = {data_id}")]
 
+async def handle_get_knowledge_about_how_to_something(arguments, db, _, allow_write, __):
+    if not arguments or "to_do_something" not in arguments:
+        raise ValueError("Missing to_do_something argument to describe your purpose")
+
+    data = [
+        KNOWLEDGES[arguments["to_do_something"]],
+    ]
+    data_id = str(uuid.uuid4())
+    return [types.TextContent(type="text", text=f"Get knowledge about how to analyze slow query as {data}, data_id = {data_id}")]
+
+
 async def handle_create_table_with_prompt(arguments, db, _, allow_write, __):
-    if not allow_write:
-        raise ValueError("Write operations are not allowed for this data connection")
+    # if not allow_write:
+    #     raise ValueError("Write operations are not allowed for this data connection")
     if not arguments["query"].strip().upper().startswith("CREATE TABLE"):
         raise ValueError("Only CREATE TABLE statements are allowed")
     # 检查用户输入的参数
@@ -529,7 +659,7 @@ async def main(
                 "properties": {},
             },
             handler=handle_list_tables,
-            tags=["description"],
+            tags=["query"],
         ),
         Tool(
             name="describe_table",
@@ -540,7 +670,7 @@ async def main(
                 "required": ["table_name"],
             },
             handler=handle_describe_table,
-            tags=["description"],
+            tags=["query"],
         ),
         Tool(
             name="show_object_list",
@@ -551,7 +681,7 @@ async def main(
                 "required": ["object_type"],
             },
             handler=handle_show_object_list,
-            tags=["show"],
+            tags=["query"],
         ),
         Tool(
             name="desc_object",
@@ -562,7 +692,7 @@ async def main(
                 "required": ["object_type", "object_name"],
             },
             handler=handle_desc_object,
-            tags=["description"],
+            tags=["query"],
         ),
         Tool(
             name="import_data_into_table_from_url",
@@ -573,7 +703,52 @@ async def main(
                 "required": ["from_url", "dest_table"],
             },
             handler=handle_import_data_into_table_from_url,
-            tags=["import-data"],
+            tags=["write"],
+        ),
+        Tool(
+            name="import_data_into_table_from_database",
+            description="Establish a connection to a database and execute a query, returning the results as a Pandas DataFrame then import data into clickzetta table. Supports MySQL, PostgreSQL, SQLite, and other common database types.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "db_type": {
+                        "type": "string",
+                        "description": "The type of the database (e.g., 'mysql', 'postgresql', 'sqlite')."
+                    },
+                    "host": {
+                        "type": "string",
+                        "description": "The hostname or IP address of the database server. Not required for SQLite."
+                    },
+                    "port": {
+                        "type": "integer",
+                        "description": "The port number of the database server. Not required for SQLite."
+                    },
+                    "database": {
+                        "type": "string",
+                        "description": "The name of the database to connect to. For SQLite, this is the file path to the database file."
+                    },
+                    "username": {
+                        "type": "string",
+                        "description": "The username for authentication. Not required for SQLite."
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "The password for authentication. Not required for SQLite."
+                    },
+                    "source_table": {
+                        "type": "string",
+                        "description": "The source table name."
+                    },
+                    "dest_table": {
+                        "type": "string",
+                        "description": "The destination table name."
+                    }
+                },
+                "required": ["db_type", "database", "source_table", "dest_table"]
+                },
+
+        handler=handle_import_data_into_table_from_database,
+        tags=["write"]
         ),
         Tool(
             name="vector_search",
@@ -599,13 +774,15 @@ async def main(
         ),
         Tool(
             name="read_query",
-            description="Execute a SELECT query.",
+            description="Execute a SELECT query. Date and time functions that are compatible with Spark SQL.",
             input_schema={
                 "type": "object",
                 "properties": {"query": {"type": "string", "description": "SELECT SQL query to execute"}},
                 "required": ["query"],
             },
             handler=handle_read_query,
+            tags=["query"],
+            samples=samples_sql.get("read_query", []),  # 从 samples 加载样例 SQL
         ),
         Tool(
             name="append_insight",
@@ -620,7 +797,8 @@ async def main(
         ),
         Tool(
             name="write_query",
-            description="Execute an INSERT, UPDATE, or DELETE query on the Clickzetta workspace/database",
+            description=("Execute an INSERT INTO, INSERT OVERWRITE, MERGE INTO, UPDATE, DELETE, or TRUNCATE query on the Clickzetta workspace/database."
+                         "While update date or timestamp column, need type cast to date or timestamp, like date '2023-10-01' or timestamp '2023-10-02 12:00:00'"),
             input_schema={
                 "type": "object",
                 "properties": {"query": {"type": "string", "description": "SQL query to execute"}},
@@ -628,6 +806,7 @@ async def main(
             },
             handler=handle_write_query,
             tags=["write"],
+            samples=samples_sql.get("write_query", []),  # 从 samples 加载样例 SQL
         ),
         Tool(
             name="create_table",
@@ -638,7 +817,8 @@ async def main(
                 "required": ["query"],
             },
             handler=handle_create_table,
-            tags=["create"],
+            tags=["write"],
+            samples=samples_sql.get("create_table", []),  # 从 samples 加载样例 SQL
         ),
         Tool(
             name="create_table_with_prompt",
@@ -658,16 +838,33 @@ async def main(
                 "required": ["table_name", "columns"],
             },
             handler=handle_create_table_with_prompt,
-            tags=["create"],
+            tags=["write"],
+            samples=samples_sql.get("create_table", []),  # 从 samples 加载样例 SQL
+        ),
+        Tool(
+            name="get_knowledge_about_how_to_do_something",
+            description="guide on how to something, like how to analyze slow query, analyze table with small file,how to create table syntax, how to create vcluster, how to create index, how to alter table and column, how to create storage connection, how to create external volume etc.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "to_do_something": {
+                        "type": "string",
+                        "description": "The thing you want to do, should be one of the following: analyze_slow_query, analyze_table_with_small_file,create_table_syntax,how_to_create_vcluster, how_to_create_index, how_to_alter_table_and_column,how_to_create_storage_connection, how_to_create_external_volume, etc."
+                    },
+                },
+            },
+            handler=handle_get_knowledge_about_how_to_something,
+            tags=["knowledge_based"],
         )
     ]
     server.prompts = {
-        "create_table_with_prompt": PROMPTS["create_table_with_prompt"],
+        "create_table_with_prompt": PROMPTS["create_table_prompt"],
     }
 
     exclude_tags = []
     if not allow_write:
-        exclude_tags.append("write")
+        # exclude_tags.append("write")
+        exclude_tags.append("create")
     if prefetch:
         exclude_tags.append("description")
     allowed_tools = [
@@ -675,6 +872,7 @@ async def main(
     ]
 
     logger.info("Allowed tools: %s", [tool.name for tool in allowed_tools])
+    logger.info("exclude_tags: %s", exclude_tags)
 
     # Register handlers
     @server.list_resources()
@@ -722,7 +920,7 @@ async def main(
         if name not in PROMPTS:
             raise ValueError(f"Prompt not found: {name}")
         
-        if name == "create_table_with_prompt":
+        if name == "create_table_prompt":
             table_name = arguments.get("table_name") if arguments else ""
             columns = arguments.get("columns") if arguments else ""
             return types.GetPromptResult(
@@ -732,6 +930,59 @@ async def main(
                         content=types.TextContent(
                             type="text",
                             text=f"Create a table named '{table_name}' with the following columns:\n\n{columns}"
+                        )
+                    )
+                ]
+            )
+
+        if name == "create_database_connection_and_query_table_prompt":
+            # Define required parameters for each database type
+            db_type_required_params = {
+                "mysql": ["host", "port", "database", "username", "password", "source_table", "dest_table"],
+                "postgresql": ["host", "port", "database", "username", "password", "source_table", "dest_table"],
+                "sqlite": ["database", "source_table", "dest_table"],  # SQLite only requires database file, source table, and target table
+                "mssql": ["host", "port", "database", "username", "password", "source_table", "dest_table"],
+                "oracle": ["host", "port", "database", "username", "password", "source_table", "dest_table"]
+            }
+
+            # Extract db_type and validate it
+            db_type = arguments.get("db_type") if arguments else None
+            if not db_type:
+                raise ValueError("Missing required argument: 'db_type'")
+            if db_type not in db_type_required_params:
+                raise ValueError(f"Unsupported database type '{db_type}'. Supported types are: {', '.join(db_type_required_params.keys())}")
+
+            # Check for missing required arguments
+            required_params = db_type_required_params[db_type]
+            missing_params = [param for param in required_params if not arguments or param not in arguments]
+            if missing_params:
+                raise ValueError(f"Missing required arguments for database type '{db_type}': {', '.join(missing_params)}")
+
+            # Extract arguments
+            host = arguments.get("host", "")
+            port = arguments.get("port", "")
+            database = arguments.get("database", "")
+            username = arguments.get("username", "")
+            password = arguments.get("password", "")
+            source_table = arguments.get("source_table", "")
+            dest_table = arguments.get("dest_table", "")
+
+            # Generate the prompt message
+            return types.GetPromptResult(
+                messages=[
+                    types.PromptMessage(
+                        role="user",
+                        content=types.TextContent(
+                            type="text",
+                            text=(
+                                f"Connect to a {db_type} database with the following details:\n"
+                                f"Host: {host}\n"
+                                f"Port: {port}\n"
+                                f"Database: {database}\n"
+                                f"Username: {username}\n"
+                                f"Password: {password}\n\n"
+                                f"Query the table named '{source_table}' and save the results into the target table '{dest_table}'."
+                            )
                         )
                     )
                 ]

@@ -6,6 +6,8 @@ from io import StringIO, BytesIO
 from typing import Union
 import clickzetta.zettapark.types as T
 
+from sqlalchemy import create_engine, text
+
 import pandas as pd
 import requests
 import zipfile
@@ -44,7 +46,7 @@ def get_embedding_xin(
     # 生成并返回嵌入向量
     return embedding['data'][0]['embedding']
 
-def read_data_to_dataframe(source: str, **kwargs) -> pd.DataFrame:
+def read_data_from_url_or_file_into_dataframe(source: str, **kwargs) -> pd.DataFrame:
     """
     Reads data from a file hosted at a URL or a local file (CSV, TXT, Excel, Parquet, etc.) into a Pandas DataFrame.
     Automatically detects compressed files (e.g., ZIP, GZ) based on the file extension.
@@ -176,3 +178,65 @@ def generate_df_schema(df: pd.DataFrame) -> T.StructType:
         fields.append(T.StructField(column_name, field_type))
 
     return T.StructType(fields)
+
+
+def connect_to_database_and_read_data_from_table_into_dataframe(
+    db_type: str,
+    host: str = None,
+    port: int = None,
+    database: str = None,
+    username: str = None,
+    password: str = None,
+    table_name: str = None
+) -> pd.DataFrame:
+    """
+    Establish a connection to a database and execute a query, returning the results as a Pandas DataFrame.
+
+    Args:
+        db_type (str): The type of the database (e.g., 'mysql', 'postgresql', 'sqlite').
+        host (str): The hostname or IP address of the database server. Not required for SQLite.
+        port (int): The port number of the database server. Not required for SQLite.
+        database (str): The name of the database to connect to. For SQLite, this is the file path to the database file.
+        username (str): The username for authentication. Not required for SQLite.
+        password (str): The password for authentication. Not required for SQLite.
+        query (str): The SQL query to execute.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the query results.
+
+    Raises:
+        ValueError: If the provided db_type is not supported or query is not provided.
+        ConnectionError: If the connection to the database fails.
+        RuntimeError: If the query execution fails.
+    """
+    # Supported database types
+    supported_db_types = ["mysql", "postgresql", "sqlite", "mssql", "oracle"]
+
+    if db_type not in supported_db_types:
+        raise ValueError(f"Unsupported database type '{db_type}'. Supported types are: {', '.join(supported_db_types)}")
+
+    if not table_name:
+        raise ValueError("A valid table name must be provided.")
+
+    # Construct the connection URL
+    if db_type == "sqlite":
+        # SQLite uses a file path instead of host/port
+        connection_url = f"sqlite:///{database}"
+    else:
+        connection_url = f"{db_type}://{username}:{password}@{host}:{port}/{database}"
+
+    # Create the SQLAlchemy engine
+    try:
+        engine = create_engine(connection_url)
+        print(f"Connecting to the {db_type} database '{database}' at {host}:{port}...")
+    except Exception as e:
+        raise ConnectionError(f"Failed to connect to the {db_type} database. Error: {e}")
+
+    # Execute the query and return results as a DataFrame
+    try:
+        with engine.connect() as connection:
+            df = pd.read_sql(f"select * from {table_name}", connection)
+            print("Query executed successfully.")
+        return df
+    except Exception as e:
+        raise RuntimeError(f"Failed to execute query. Error: {e}")

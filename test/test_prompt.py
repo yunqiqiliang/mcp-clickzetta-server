@@ -27,7 +27,7 @@ async def main():
 
             # Get the prompt with arguments
             prompt = await session.get_prompt(
-                "create_table_with_prompt",
+                "create_table_prompt",
                 {
                     "table_name": "table_created_with_prompt",
                     "columns": "id:integer, name:string, age:integer",

@@ -29,7 +29,7 @@ The server offers six core tools:
    - Execute INSERT, UPDATE, or DELETE queries
    - Input:
      - `query` (string): The SQL modification query
-   - Returns: `{ affected_rows: number }`
+   - Returns: `{ affected_rows: number }`   pip install jupyterlab jupyter-collaboration ipykernel -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 - `create_table` (with `--allow-write` flag)
    - Create new tables in the database
@@ -136,7 +136,54 @@ uv run mcp_clickzetta_server --no-prefetch
 2025-03-25 10:11:23,732 - mcp_clickzetta_server - INFO - Server running with stdio transport
 ```
 
-##### Claude Desktop Integration
+##### Claude Desktop Integration 
+
+###### command:docker
+
+The MCP server (running in Docker) reads its configuration from environment variables passed via the MCP client configuration (e.g., `claude_desktop_config.json`). Key variables:
+```json
+{
+   "clickzetta-mcp-server": {
+         "command": "docker",
+         "args": [
+            "run",
+            "-i", 
+            "--rm", 
+            "-e", "LOG_LEVEL=INFO", 
+            "-e", "CLICKZETTA_SERVICE", 
+            "-e", "CLICKZETTA_INSTANCE",
+            "-e", "CLICKZETTA_WORKSPACE",
+            "-e", "CLICKZETTA_SCHEMA",
+            "-e", "CLICKZETTA_USERNAME",
+            "-e", "CLICKZETTA_PASSWORD",
+            "-e", "CLICKZETTA_VCLUSTER",
+            "-e", "XINFERENCE_BASE_URL",
+            "-e", "XINFERENCE_EMBEDDING_MODEL_512",
+            "-e", "Similar_table_name",
+            "-e", "Similar_embedding_column_name",
+            "-e", "Similar_content_column_name",
+            "-e", "Similar_partition_scope",
+            "czqiliang/mcp-clickzetta-server:latest" 
+         ],
+         "env": {
+            "CLICKZETTA_SERVICE": "api.clickzetta.com", 
+            "CLICKZETTA_INSTANCE": "your clickzetta instance", 
+            "CLICKZETTA_WORKSPACE": "your clickzetta workspace" ,
+            "CLICKZETTA_SCHEMA": "your clickzetta schema",
+            "CLICKZETTA_USERNAME": "your clickzetta usename",
+            "CLICKZETTA_PASSWORD": "your clickzetta password",
+            "CLICKZETTA_VCLUSTER": "your clickzetta vcluster",
+            "XINFERENCE_BASE_URL": "http://host.docker.internal:9998",
+            "XINFERENCE_EMBEDDING_MODEL_512": "bge-small-zh",
+            "Similar_table_name": "clickzegithub_event_issuesevent_embedding.github_event_issuesevent_embedding_512tta_table",
+            "Similar_embedding_column_name": "issue_body_embedding",
+            "Similar_content_column_name": "issue_body",
+            "Similar_partition_scope": "partition_date  >= '2024-01-01' and partition_date  <= '2024-01-15'"
+            }
+      }
+}
+
+###### command:uv
 - In Claude Desktop, go to Settings → MCP Servers
 - Add a new server with the full path to your uv executable:
 
@@ -160,6 +207,8 @@ uv run mcp_clickzetta_server --no-prefetch
 - Save the server configuration
 
 ![image.png](/image/claude_add_clickzetta_mcp_server.png)
+
+
 
 ##### Example Queries
 
