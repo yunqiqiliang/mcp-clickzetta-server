@@ -103,7 +103,7 @@ The server offers the following core tools:
   - `dest_table` (string): The destination table name.
 - **Returns**: Confirmation of successful data import.
 
-#### Search Tools
+#### Similar Search Tools
 
 ##### `vector_search`
 - **Description**: Perform vector search on a table using a question and return the top 5 closest answers.
@@ -123,6 +123,20 @@ The server offers the following core tools:
   - `partition_scope` (string): SQL code to define the partition scope as part of the `WHERE` condition.
   - `question` (string): The question to search.
 - **Returns**: Search results.
+
+##### `get_knowledge_about_how_to_do_something`
+- **Description**: Provide guidance on how to perform specific tasks, such as analyzing slow queries, creating tables, or managing storage connections.
+- **Input**:
+  - `to_do_something` (string): The task to perform. Supported tasks include:
+    - `analyze_slow_query`
+    - `analyze_table_with_small_file`
+    - `create_table_syntax`
+    - `how_to_create_vcluster`
+    - `how_to_create_index`
+    - `how_to_alter_table_and_column`
+    - `how_to_create_storage_connection`
+    - `how_to_create_external_volume`
+- **Returns**: Detailed guidance on the specified task.
 
 #### Usage Notes
 
