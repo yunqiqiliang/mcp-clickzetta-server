@@ -4,7 +4,7 @@
 
 
 ## Overview
-A Model Context Protocol (MCP) server implementation that provides database interaction with [Clickzetta Lakehouse](https://www.yunqi.tech). This server enables running SQL queries with tools and intereacting with a memo of data insights presented as a resource.
+A Model Context Protocol (MCP) server implementation that provides database interaction with [Clickzetta Lakehouse](https://www.yunqi.tech/documents). This server enables running SQL queries with tools and intereacting with a memo of data insights presented as a resource.
 
 ![image.gif](image/introduction.gif)
 
