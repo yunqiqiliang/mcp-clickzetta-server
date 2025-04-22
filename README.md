@@ -273,7 +273,7 @@ uv pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple/
 #### Config credentials
 Create a .env file based on .env.example with your Clickzetta Lakehouse credentials:
 
-```json
+```
 CLICKZETTA_USERNAME = ""
 CLICKZETTA_PASSWORD = ""
 CLICKZETTA_SERVICE = "api.clickzetta.com"
