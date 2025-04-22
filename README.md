@@ -18,6 +18,33 @@ A Model Context Protocol (MCP) server implementation that provides database inte
 
 [Get your ClickZetta Account](https://accounts.clickzetta.com/register)
 
+### Install your Jupyter lab
+
+```SHELL
+# Create a clean environment (Python 3.10 worked during debugging)
+conda create -n jupyter_mcp_env python=3.10 -y
+
+# Activate the environment
+conda activate jupyter_mcp_env
+
+# Use 'python -m pip' to ensure correct pip in the activated env
+python -m pip install jupyterlab ipykernel
+
+# Install the required v2.0.1
+python -m pip install "jupyter_collaboration==2.0.1"
+
+# Uninstall potentially conflicting versions
+python -m pip uninstall -y pycrdt datalayer_pycrdt
+
+# Install the required version
+python -m pip install datalayer_pycrdt
+
+jupyter server extension enable jupyter_collaboration --py --sys-prefix
+
+# Start JupyterLab, please keep token as YOUR_SECURE_TOKEN
+jupyter lab --port 8888 --IdentityProvider.token YOUR_SECURE_TOKEN --ip 0.0.0.0
+```
+
 ### Add MCP server in your Claude Desktop
 
 - In Claude Desktop, go to Settings → Developer → Edit Config
