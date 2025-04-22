@@ -863,5 +863,107 @@ KNOWLEDGES = {
             "url": "https://yunqi.tech/documents/structure_data_analysis"
             }
         ]
-        }
+        },
+    "how_to_alter_vcluster": {
+    "title": "How to Alter a Virtual Cluster",
+    "description": "Provides step-by-step guidance and SQL syntax for altering a virtual cluster (vCluster) in Clickzetta.",
+    "steps": [
+      {
+        "step_number": 1,
+        "title": "Identify the vCluster to Alter",
+        "description": "Determine the name of the vCluster you want to modify. Ensure you have the necessary permissions to make changes."
+      },
+      {
+        "step_number": 2,
+        "title": "Prepare the ALTER Statement",
+        "description": "Use the `ALTER VCLUSTER` SQL statement to modify the vCluster. Specify the properties you want to change, such as resource allocation, scaling policies, or other configurations."
+      },
+      {
+        "step_number": 3,
+        "title": "Execute the ALTER Statement",
+        "description": "Run the `ALTER VCLUSTER` statement in the Clickzetta SQL console or through an API client. Verify that the changes are applied successfully."
+      },
+      {
+        "step_number": 4,
+        "title": "Validate the Changes",
+        "description": "Check the vCluster's status and configuration to ensure the changes have been applied correctly. Use monitoring tools or SQL queries to confirm."
+      }
+    ],
+    "syntax": [
+      "ALTER VCLUSTER [ IF EXISTS ] <vcluster_name> SET [ objectProperties ];",
+      "-- Parameters for Analytics Purpose Virtual Cluster",
+      "objectProperties ::=",
+      "  VCLUSTER_SIZE = <num>, -- Integer between 1 and 256",
+      "  MIN_REPLICAS = <num>,",
+      "  MAX_REPLICAS = <num>,",
+      "  AUTO_SUSPEND_IN_SECOND = <num>,",
+      "  AUTO_RESUME = <TRUE | FALSE>,",
+      "  MAX_CONCURRENCY = <num>,",
+      "  QUERY_RUNTIME_LIMIT_IN_SECOND = <num>,",
+      "  PRELOAD_TABLES = '<schema_name>.<table_name>[, <schema_name>.<table_name>, ...]';",
+      "",
+      "-- Parameters for General Purpose Virtual Cluster",
+      "objectProperties ::=",
+      "  [VCLUSTER_SIZE = <num> | MIN_VCLUSTER_SIZE = <num> MAX_VCLUSTER_SIZE = <num>], -- Integer between 1 and 256",
+      "  VCLUSTER_TYPE = GENERAL,",
+      "  AUTO_SUSPEND_IN_SECOND = <num>,",
+      "  AUTO_RESUME = <TRUE | FALSE>,",
+      "  QUERY_RUNTIME_LIMIT_IN_SECOND = <num>,",
+      "  QUERY_RESOURCE_LIMIT_RATIO = <num>;",
+      "",
+      "-- Parameters for Integration Virtual Cluster",
+      "objectProperties ::=",
+      "  [VCLUSTER_SIZE = <num> | MIN_VCLUSTER_SIZE = <num> MAX_VCLUSTER_SIZE = <num>], -- 0.25, 0.5, or integers between 1 and 256",
+      "  VCLUSTER_TYPE = INTEGRATION,",
+      "  AUTO_SUSPEND_IN_SECOND = <num>,",
+      "  AUTO_RESUME = <TRUE | FALSE>,",
+      "  QUERY_RUNTIME_LIMIT_IN_SECOND = <num>;"
+    ],
+    "examples": [
+      {
+        "description": "Resume a VCluster.",
+        "sql": "ALTER VCLUSTER [ IF EXISTS ] name RESUME;",  
+      },
+      {
+        "description": "Suspend a VCluster.",
+        "sql": "ALTER VCLUSTER [ IF EXISTS ] name SUSPEND [FORCE];",  
+      },
+      {
+        "description": "Cancel all JOBs in a VCluster.",
+        "sql": "ALTER VCLUSTER [ IF EXISTS ] name CANCEL ALL JOBS;",  
+      },
+      {
+        "description": "Alter comment for a VCluster.",
+        "sql": "ALTER VCLUSTER [ IF EXISTS ] name SET COMMENT '';",  
+      },
+      {
+        "description": "Modify the size and auto-suspend settings of a vCluster.",
+        "sql": "ALTER VCLUSTER my_vcluster SET VCLUSTER_SIZE = 8, AUTO_SUSPEND_IN_SECOND = 300;"
+      },
+      {
+        "description": "Enable auto-resume and set a query runtime limit.",
+        "sql": "ALTER VCLUSTER analytics_vcluster SET AUTO_RESUME = TRUE, QUERY_RUNTIME_LIMIT_IN_SECOND = 600;"
+      },
+      {
+        "description": "Preload specific tables into the vCluster.",
+        "sql": "ALTER VCLUSTER etl_vcluster SET PRELOAD_TABLES = 'schema1.table1, schema2.table2';"
+      }
+    ],
+    "notes": [
+      "Ensure you have administrative privileges to alter a vCluster.",
+      "Changes to a vCluster may temporarily impact running workloads.",
+      "Always validate the changes after executing the ALTER statement.",
+      "The `VCLUSTER_SIZE` must be a power of 2 and within the allowed range (e.g., 1 to 256).",
+      "The `AUTO_SUSPEND_IN_SECOND` value determines the idle time before the vCluster is suspended."
+    ],
+    "references": [
+      {
+        "title": "Clickzetta Documentation: ALTER VCLUSTER",
+        "url": "https://yunqi.tech/documents/alter-vcluster"
+      }
+    ]
+  }
 }
+
+
+  
