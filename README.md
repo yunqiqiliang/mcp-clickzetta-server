@@ -113,6 +113,8 @@ jupyter lab --port 8888 --IdentityProvider.token YOUR_SECURE_TOKEN --ip 0.0.0.0
    }
 }
 ```
+You could get more detail information about Zettapark MCP Server from [here](https://github.com/yunqiqiliang/jupyter-mcp-server).
+
 ## Components
 
 ### Resources
