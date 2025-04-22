@@ -141,6 +141,7 @@ uv run mcp_clickzetta_server --no-prefetch
 ###### command:docker
 
 The MCP server (running in Docker) reads its configuration from environment variables passed via the MCP client configuration (e.g., `claude_desktop_config.json`). Key variables:
+
 ```json
 {
    "clickzetta-mcp-server": {
@@ -182,6 +183,7 @@ The MCP server (running in Docker) reads its configuration from environment vari
             }
       }
 }
+```
 
 ###### command:uv
 - In Claude Desktop, go to Settings → MCP Servers
