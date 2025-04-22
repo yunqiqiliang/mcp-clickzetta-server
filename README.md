@@ -16,46 +16,118 @@ The server exposes a single dynamic resource:
   - Auto-updates as new insights are discovered via the append-insight tool
 
 ### Tools
-The server offers six core tools:
+
+The server offers the following core tools:
 
 #### Query Tools
-- `read_query`
-   - Execute SELECT queries to read data from the database
-   - Input:
-     - `query` (string): The SELECT SQL query to execute
-   - Returns: Query results as array of objects
 
-- `write_query` (with `--allow-write` flag)
-   - Execute INSERT, UPDATE, or DELETE queries
-   - Input:
-     - `query` (string): The SQL modification query
-   - Returns: `{ affected_rows: number }`   pip install jupyterlab jupyter-collaboration ipykernel -i https://pypi.tuna.tsinghua.edu.cn/simple
+##### `read_query`
+- **Description**: Execute `SELECT` queries to read data from the database.
+- **Input**:
+  - `query` (string): The `SELECT` SQL query to execute.
+- **Returns**: Query results as an array of objects.
 
-- `create_table` (with `--allow-write` flag)
-   - Create new tables in the database
-   - Input:
-     - `query` (string): CREATE TABLE SQL statement
-   - Returns: Confirmation of table creation
+##### `write_query` (requires `--allow-write` flag)
+- **Description**: Execute `INSERT`, `UPDATE`, or `DELETE` queries to modify data.
+- **Input**:
+  - `query` (string): The SQL modification query.
+- **Returns**: `{ affected_rows: number }`, indicating the number of affected rows.
+
+##### `create_table` (requires `--allow-write` flag)
+- **Description**: Create new tables in the database.
+- **Input**:
+  - `query` (string): `CREATE TABLE` SQL statement.
+- **Returns**: Confirmation of table creation.
+
+##### `create_table_with_prompt` (requires `--allow-write` flag)
+- **Description**: Create a new table by prompting the user for table name, columns, and their types.
+- **Input**:
+  - `table_name` (string): The name of the table to create.
+  - `columns` (string): The columns and their types in the format `column1:type1,column2:type2`.
+- **Returns**: Confirmation of table creation.
 
 #### Schema Tools
-- `list_tables`
-   - Get a list of all tables in the database
-   - No input required
-   - Returns: Array of table names
 
-- `describe-table`
-   - View column information for a specific table
-   - Input:
-     - `table_name` (string): Name of table to describe (can be fully qualified)
-   - Returns: Array of column definitions with names and types
+##### `list_tables`
+- **Description**: Get a list of all tables in the database.
+- **Input**: No input required.
+- **Returns**: An array of table names.
+
+##### `describe_table`
+- **Description**: View column information for a specific table.
+- **Input**:
+  - `table_name` (string): Name of the table to describe (can be fully qualified).
+- **Returns**: An array of column definitions with names and types.
+
+##### `show_object_list`
+- **Description**: Get the list of specific object types in the current workspace, such as catalogs, schemas, tables, etc.
+- **Input**:
+  - `object_type` (string): The type of the object to show.
+- **Returns**: A list of objects.
+
+##### `desc_object`
+- **Description**: Get detailed information about a specific object, such as a catalog, schema, or table.
+- **Input**:
+  - `object_type` (string): The type of the object.
+  - `object_name` (string): The name of the object.
+- **Returns**: Detailed information about the object.
 
 #### Analysis Tools
-- `append_insight`
-   - Add new data insights to the memo resource
-   - Input:
-     - `insight` (string): data insight discovered from analysis
-   - Returns: Confirmation of insight addition
-   - Triggers update of memo://insights resource
+
+##### `append_insight`
+- **Description**: Add new data insights to the memo resource.
+- **Input**:
+  - `insight` (string): Data insight discovered from analysis.
+- **Returns**: Confirmation of insight addition.
+- **Triggers**: Updates the `memo://insights` resource.
+
+#### Data Import Tools
+
+##### `import_data_into_table_from_url`
+- **Description**: Import data into a table from a URL (including file paths or HTTP/HTTPS URLs). If the destination table does not exist, it will be created automatically.
+- **Input**:
+  - `from_url` (string): The data source URL.
+  - `dest_table` (string): The table to import data into.
+- **Returns**: Confirmation of successful data import.
+
+##### `import_data_into_table_from_database`
+- **Description**: Connect to a database, execute a query, and import the results into a Clickzetta table. Supports MySQL, PostgreSQL, SQLite, and other common database types.
+- **Input**:
+  - `db_type` (string): The type of the database (e.g., `mysql`, `postgresql`, `sqlite`).
+  - `host` (string): The hostname or IP address of the database server (not required for SQLite).
+  - `port` (integer): The port number of the database server (not required for SQLite).
+  - `database` (string): The name of the database to connect to (for SQLite, this is the file path to the database file).
+  - `username` (string): The username for authentication (not required for SQLite).
+  - `password` (string): The password for authentication (not required for SQLite).
+  - `source_table` (string): The source table name.
+  - `dest_table` (string): The destination table name.
+- **Returns**: Confirmation of successful data import.
+
+#### Search Tools
+
+##### `vector_search`
+- **Description**: Perform vector search on a table using a question and return the top 5 closest answers.
+- **Input**:
+  - `table_name` (string): The table name.
+  - `content_column_name` (string): The column storing content.
+  - `embedding_column_name` (string): The column storing embeddings.
+  - `partition_scope` (string): SQL code to define the partition scope as part of the `WHERE` condition.
+  - `question` (string): The question to search.
+- **Returns**: Search results.
+
+##### `match_all`
+- **Description**: Perform a search using the "match all" function on a table with a question and return the top 5 answers.
+- **Input**:
+  - `table_name` (string): The table name.
+  - `content_column_name` (string): The column storing content.
+  - `partition_scope` (string): SQL code to define the partition scope as part of the `WHERE` condition.
+  - `question` (string): The question to search.
+- **Returns**: Search results.
+
+#### Usage Notes
+
+- Ensure the `--allow-write` flag is enabled when using tools that modify data (e.g., `write_query`, `create_table`).
+- Provide the correct input parameters for each tool as described above.
 
 
 ## Usage with Claude Desktop
