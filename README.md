@@ -8,6 +8,84 @@ A Model Context Protocol (MCP) server implementation that provides database inte
 
 ![image.gif](image/introduction.gif)
 
+## Quick Start with MCP-ClickZetta-Server/Zettapark-MCP-Server/Claude Desktop as your AI Data Engineer
+
+### Download and install Claude Desktop
+
+[Download from claude.ai](https://claude.ai/download) and sign in.
+
+### Get your ClickZetta Account
+
+[Get your ClickZetta Account](https://accounts.clickzetta.com/register)
+
+### Add MCP server in your Claude Desktop
+
+- In Claude Desktop, go to Settings → Developer → Edit Config
+- Open claude_desktop_config.json and config MCP servers
+
+```JSON
+{
+   "mcpServers": {
+
+      "jupyter": {
+         "command": "docker",
+      "args": [
+        "run",
+        "-i", 
+        "--rm", 
+        "-e", "SERVER_URL", 
+        "-e", "TOKEN",
+        "-e", "NOTEBOOK_PATH",
+        "-e", "LOG_LEVEL=INFO", 
+        "czqiliang/jupyter-mcp-server:latest" 
+      ],
+      "env": {
+        "SERVER_URL": "http://host.docker.internal:8888", 
+        "TOKEN": "YOUR_SECURE_TOKEN", 
+        "NOTEBOOK_PATH": "notebook.ipynb" 
+         }
+      },
+      "clickzetta-mcp-server": {
+         "command": "docker",
+         "args": [
+            "run",
+            "-i", 
+            "--rm", 
+            "-e", "LOG_LEVEL=INFO", 
+            "-e", "CLICKZETTA_SERVICE", 
+            "-e", "CLICKZETTA_INSTANCE",
+            "-e", "CLICKZETTA_WORKSPACE",
+            "-e", "CLICKZETTA_SCHEMA",
+            "-e", "CLICKZETTA_USERNAME",
+            "-e", "CLICKZETTA_PASSWORD",
+            "-e", "CLICKZETTA_VCLUSTER",
+            "-e", "XINFERENCE_BASE_URL",
+            "-e", "XINFERENCE_EMBEDDING_MODEL_512",
+            "-e", "Similar_table_name",
+            "-e", "Similar_embedding_column_name",
+            "-e", "Similar_content_column_name",
+            "-e", "Similar_partition_scope",
+            "czqiliang/mcp-clickzetta-server:latest" 
+         ],
+         "env": {
+            "CLICKZETTA_SERVICE": "api.clickzetta.com", 
+            "CLICKZETTA_INSTANCE": "your clickzetta instance", 
+            "CLICKZETTA_WORKSPACE": "your clickzetta workspace" ,
+            "CLICKZETTA_SCHEMA": "your clickzetta schema",
+            "CLICKZETTA_USERNAME": "your clickzetta usename",
+            "CLICKZETTA_PASSWORD": "your clickzetta password",
+            "CLICKZETTA_VCLUSTER": "your clickzetta vcluster",
+            "XINFERENCE_BASE_URL": "http://host.docker.internal:9998",
+            "XINFERENCE_EMBEDDING_MODEL_512": "bge-small-zh",
+            "Similar_table_name": "clickzegithub_event_issuesevent_embedding.github_event_issuesevent_embedding_512tta_table",
+            "Similar_embedding_column_name": "issue_body_embedding",
+            "Similar_content_column_name": "issue_body",
+            "Similar_partition_scope": "partition_date  >= '2024-01-01' and partition_date  <= '2024-01-15'"
+            }
+      }
+   }
+}
+```
 ## Components
 
 ### Resources
