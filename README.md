@@ -8,6 +8,75 @@ A Model Context Protocol (MCP) server implementation that provides database inte
 
 ![image.gif](image/introduction.gif)
 
+## Quick Start with MCP-ClickZetta-Server/Trae as your AI Data Engineer
+
+### Download and install Claude Desktop
+
+[Download from trae.ai](https://www.trae.ai) and sign in to enable use AI.
+
+### Get your ClickZetta Account
+
+[Get your ClickZetta Account](https://accounts.clickzetta.com/register)
+
+### Pull  MCP-ClickZetta-Server Docker Image
+
+```SHELL
+docker pull czqiliang/mcp-clickzetta-server
+```
+
+### Add MCP server in Trae
+
+- In the AI chat window, click the Settings icon > MCP.
+- The MCP window will appear.
+- Click the + Add button.
+- You will enter the MCP Server Marketplace.
+- Click Manual Configuration. The Manual Configuration window will appear. Add a brand-new MCP Server by pasting the following JSON configuration into the input box, then click the Confirm button. The MCP Server will be added to the MCP list.
+
+```JSON
+{
+   "mcpServers": {
+      "clickzetta-mcp-server": {
+         "command": "docker",
+         "args": [
+            "run",
+            "-i", 
+            "--rm", 
+            "-e", "LOG_LEVEL=INFO", 
+            "-e", "CLICKZETTA_SERVICE", 
+            "-e", "CLICKZETTA_INSTANCE",
+            "-e", "CLICKZETTA_WORKSPACE",
+            "-e", "CLICKZETTA_SCHEMA",
+            "-e", "CLICKZETTA_USERNAME",
+            "-e", "CLICKZETTA_PASSWORD",
+            "-e", "CLICKZETTA_VCLUSTER",
+            "-e", "XINFERENCE_BASE_URL",
+            "-e", "XINFERENCE_EMBEDDING_MODEL_512",
+            "-e", "Similar_table_name",
+            "-e", "Similar_embedding_column_name",
+            "-e", "Similar_content_column_name",
+            "-e", "Similar_partition_scope",
+            "czqiliang/mcp-clickzetta-server:latest" 
+         ],
+         "env": {
+            "CLICKZETTA_SERVICE": "api.clickzetta.com", 
+            "CLICKZETTA_INSTANCE": "your clickzetta instance", 
+            "CLICKZETTA_WORKSPACE": "your clickzetta workspace" ,
+            "CLICKZETTA_SCHEMA": "your clickzetta schema",
+            "CLICKZETTA_USERNAME": "your clickzetta usename",
+            "CLICKZETTA_PASSWORD": "your clickzetta password",
+            "CLICKZETTA_VCLUSTER": "your clickzetta vcluster",
+            "XINFERENCE_BASE_URL": "http://host.docker.internal:9998",
+            "XINFERENCE_EMBEDDING_MODEL_512": "bge-small-zh",
+            "Similar_table_name": "clickzegithub_event_issuesevent_embedding.github_event_issuesevent_embedding_512tta_table",
+            "Similar_embedding_column_name": "issue_body_embedding",
+            "Similar_content_column_name": "issue_body",
+            "Similar_partition_scope": "partition_date  >= '2024-01-01' and partition_date  <= '2024-01-15'"
+            }
+      }
+   }
+}
+```
+
 ## Quick Start with MCP-ClickZetta-Server/Zettapark-MCP-Server/Claude Desktop as your AI Data Engineer
 
 ### Download and install Claude Desktop

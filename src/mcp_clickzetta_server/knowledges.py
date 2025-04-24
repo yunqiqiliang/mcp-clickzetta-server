@@ -962,7 +962,200 @@ KNOWLEDGES = {
         "url": "https://yunqi.tech/documents/alter-vcluster"
       }
     ]
-  }
+  },
+  "partition_table_guide": {
+        "title": "Partition Table Guide",
+        "description": "Comprehensive guide on partitioning tables to optimize query performance and resource usage.",
+        "concepts": {
+            "partitioning": {
+                "description": "Partitioning is a method of grouping similar rows together during writes to speed up queries.",
+                "benefits": [
+                    "Data pruning: Optimizes queries by reducing the amount of data scanned.",
+                    "Improved query performance: WHERE clauses can target specific partitions, avoiding full table scans.",
+                    "Reduced computational resources: Limits the scope of data processing."
+                ]
+            },
+            "lakehouse_partitioning": {
+                "description": "Lakehouse partitioning is similar to Apache Iceberg's hidden partitioning.",
+                "types": {
+                    "identity_partitioning": {
+                        "description": "Uses one or more table columns as partition keys, dividing data into partitions based on column values."
+                    },
+                    "transform_partitioning": {
+                        "description": "Applies a transformation function to one or more columns to generate partition keys.",
+                        "example": "Using years(timestamp) to partition data by year."
+                    }
+                },
+                "metadata_storage": {
+                    "description": "Partition information and data file paths are stored in metadata.",
+                    "benefits": [
+                        "Allows partition strategy changes without affecting data.",
+                        "Hides partition information, eliminating the need to specify partition conditions in SQL."
+                    ]
+                }
+            }
+        },
+        "partition_functions": {
+            "description": "Lakehouse supports a subset of Apache Iceberg's transformation partition functions.",
+            "functions": [
+                {
+                    "name": "bucket(numbucket, colName)",
+                    "description": "Hashes the value and takes modulo N.",
+                    "source_type": ["int", "long", "decimal", "date", "timestamp_ltz", "string", "binary"],
+                    "result_type": "int"
+                },
+                {
+                    "name": "truncate(colName, W)",
+                    "description": "Truncates the value to width W.",
+                    "source_type": ["int", "long", "decimal", "string"],
+                    "result_type": "source type"
+                },
+                {
+                    "name": "years",
+                    "description": "Extracts the year from a date or timestamp, based on 1970.",
+                    "source_type": ["date", "timestamp", "timestamptz"],
+                    "result_type": "int"
+                },
+                {
+                    "name": "months",
+                    "description": "Extracts the month from a date or timestamp, based on 1970-01-01.",
+                    "source_type": ["date", "timestamp", "timestamptz"],
+                    "result_type": "int"
+                },
+                {
+                    "name": "days",
+                    "description": "Extracts the day from a date or timestamp, based on 1970-01-01.",
+                    "source_type": ["date", "timestamp", "timestamptz"],
+                    "result_type": "int"
+                },
+                {
+                    "name": "hours",
+                    "description": "Extracts the hour from a timestamp, based on 1970-01-01 00:00:00.",
+                    "source_type": ["timestamp", "timestamptz"],
+                    "result_type": "int"
+                }
+            ]
+        },
+        "partition_operations": {
+            "insert_into_partition": {
+                "description": "Inserts data into one or more partitions. If the partition does not exist, it is automatically created.",
+                "syntax": "INSERT INTO table_name PARTITION (partition_spec) VALUES (...);",
+                "notes": "Partition clause can be omitted, and data will map automatically based on column order."
+            },
+            "insert_overwrite_partition": {
+                "description": "Overwrites data in one or more partitions. If the partition does not exist, it is automatically created.",
+                "syntax": "INSERT OVERWRITE [TABLE] table_name [PARTITION partition_spec] VALUES (...);",
+                "notes": [
+                    "Static overwrite: Overwrites only the specified partition.",
+                    "Dynamic overwrite: Overwrites all matching partitions if no partition is specified."
+                ]
+            },
+            "truncate_partition": {
+                "description": "Clears data from one or more partitions.",
+                "syntax": "TRUNCATE [TABLE] table_name [PARTITION partition_spec];",
+                "notes": "Lakehouse does not retain partition values after truncation."
+            },
+            "drop_partition": {
+                "description": "Deletes one or more partitions from the table.",
+                "syntax": "ALTER TABLE table_name DROP [IF EXISTS] PARTITION partition_spec;"
+            },
+            "rename_partition": {
+                "description": "Renames a partition by updating its data.",
+                "syntax": "UPDATE table_name SET partition_column = 'new_value' WHERE partition_column = 'old_value';"
+            },
+            "show_partition": {
+                "description": "Displays partition information.",
+                "syntax": "SELECT DISTINCT partition_column FROM table_name;"
+            }
+        },
+        "supported_partition_data_types": {
+            "supported": ["TINYINT", "SMALLINT", "INT", "BIGINT", "STRING", "CHAR(n)", "VARCHAR(n)", "BOOLEAN"],
+            "unsupported": ["BINARY", "FLOAT", "DOUBLE", "DECIMAL(precision, scale)", "TIMESTAMP_LTZ", "INTERVAL", "ARRAY", "MAP", "STRUCT"]
+        },
+        "partition_write_limitations": {
+            "description": "Limitations when writing to partitions.",
+            "notes": [
+                "A single task is limited to 2048 dynamic partitions.",
+                "If exceeded, an error will occur: 'The count of dynamic partitions exceeds the maximum number 2048.'",
+                "It is recommended to batch import data if the number of partitions exceeds the limit."
+            ]
+        },
+        "references": [
+            "https://yunqi.tech/documents/partition_table_guide"
+        ]
+    },
+    "cluster_table_guide": {
+    "title": "Clustered Key and Sorted Key Guide",
+    "description": "Comprehensive guide on using clustered keys and sorted keys to optimize data organization for improved query performance and storage efficiency.",
+    "concepts": {
+        "clustered_key": {
+            "description": "Clustered keys are the core of table data distribution. By specifying columns as hash keys, Lakehouse distributes data across different buckets based on hash calculations.",
+            "benefits": [
+                "Avoids data skew and hotspot issues.",
+                "Improves parallel processing capabilities.",
+                "Enhances performance for JOIN operations when the join key matches the clustered key."
+            ],
+            "selection_criteria": [
+                "Choose columns with a wide range of values and fewer duplicates to achieve uniform data distribution.",
+                "Recommended bucket size is approximately 128MB to 1GB, depending on compression rate and access patterns.",
+                "If no clustered key is specified, the default is 256 buckets."
+            ],
+            "notes": [
+                "Avoid specifying too few buckets to prevent the creation of many small files, which can impact metadata management and I/O efficiency.",
+                "Excessive small files can lead to poor data locality, increased task scheduling overhead, and reduced processing efficiency."
+            ]
+        },
+        "sorted_key": {
+            "description": "Sorted keys define the sorting order of fields within files. Sorting data by sorted keys can improve query performance for queries requiring sorted results.",
+            "usage_notes": [
+                "You can specify ascending (ASC) or descending (DESC) order for sorted keys.",
+                "Sorting large datasets during insertion may consume significant resources."
+            ]
+        }
+    },
+    "examples": {
+        "example_1": {
+            "description": "Create a table with clustered and sorted keys.",
+            "sql": [
+                "CREATE TABLE sales_data (",
+                "    sale_id INT,",
+                "    product_id INT,",
+                "    quantity_sold INT,",
+                "    sale_date DATE,",
+                "    ...",
+                ") CLUSTERED BY (product_id)",
+                "SORTED BY (sale_date DESC)",
+                "INTO 50 BUCKETS;"
+            ],
+            "notes": "In this example, the `sales_data` table distributes data into 50 buckets based on the hash value of the `product_id` column. Within each bucket, data is sorted in descending order by the `sale_date` column."
+        },
+        "example_2": {
+            "description": "Optimize query performance in a data warehouse.",
+            "sql": [
+                "CREATE TABLE transaction_records (",
+                "    transaction_id INT,",
+                "    customer_id INT,",
+                "    transaction_date DATE,",
+                "    amount DECIMAL(10,2),",
+                "    ...",
+                ") CLUSTERED BY (customer_id)",
+                "SORTED BY (transaction_date ASC)",
+                "INTO 128 BUCKETS;"
+            ],
+            "notes": "In this example, the `transaction_records` table distributes data into 128 buckets based on the `customer_id` column. Within each bucket, data is sorted in ascending order by the `transaction_date` column. This design improves query efficiency for retrieving transaction records by customer."
+        }
+    },
+    "conclusion": {
+        "description": "Using clustered keys and sorted keys effectively optimizes the physical storage structure of data, improving query performance, especially for large-scale datasets.",
+        "applications": [
+            "Particularly suitable for data warehouse and big data analytics scenarios.",
+            "Significantly enhances data processing efficiency and speed."
+        ],
+    },
+    "references": [
+            "https://yunqi.tech/documents/cluster-table-guide"
+        ]
+}
 }
 
 

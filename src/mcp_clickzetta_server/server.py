@@ -843,13 +843,17 @@ async def main(
         ),
         Tool(
             name="get_knowledge_about_how_to_do_something",
-            description="guide on how to something, like how to analyze slow query, analyze table with small file,how to create table syntax, how to create vcluster, how to create index, how to alter table and column, how to create storage connection, how to create external volume,how to alter vcluster, etc.",
+            description=("guide on how to something, like how to analyze slow query,"
+                        "analyze table with small file,how to create table syntax, "
+                        "how to create vcluster, how to create index, how to alter table and column, "
+                        "how to create storage connection, how to create external volume,"
+                        "how to alter vcluster, partition table guide,cluster table guide, etc."),
             input_schema={
                 "type": "object",
                 "properties": {
                     "to_do_something": {
                         "type": "string",
-                        "description": "The thing you want to do, should be one of the following: analyze_slow_query, analyze_table_with_small_file,create_table_syntax,how_to_create_vcluster, how_to_create_index, how_to_alter_table_and_column,how_to_create_storage_connection, how_to_create_external_volume, how_to_alter_vcluster,etc."
+                        "description": "The thing you want to do, should be one of the following: analyze_slow_query, analyze_table_with_small_file,create_table_syntax,how_to_create_vcluster, how_to_create_index, how_to_alter_table_and_column,how_to_create_storage_connection, how_to_create_external_volume, how_to_alter_vcluster,partition_table_guide,cluster_table_guide, etc."
                     },
                 },
             },
