@@ -10,7 +10,7 @@ A Model Context Protocol (MCP) server implementation that provides database inte
 
 ## Quick Start with MCP-ClickZetta-Server/Trae as your AI Data Engineer
 
-### Download and install Claude Desktop
+### Download and install Trae
 
 [Download from trae.ai](https://www.trae.ai) and sign in to enable use AI.
 
@@ -76,6 +76,8 @@ docker pull czqiliang/mcp-clickzetta-server
    }
 }
 ```
+
+![image.gif](image/trae_show.gif)
 
 ## Quick Start with MCP-ClickZetta-Server/Zettapark-MCP-Server/Claude Desktop as your AI Data Engineer
 
