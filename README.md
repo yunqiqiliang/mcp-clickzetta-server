@@ -77,6 +77,9 @@ docker pull czqiliang/mcp-clickzetta-server
 }
 ```
 
+- CLICKZETTA开头的env参数为必填
+- XINFERENCE开头的和Similar开头的env参数为可选，支持vector_search和match_all连个tools
+
 ![image.gif](image/trae_show.gif)
 
 ## Quick Start with MCP-ClickZetta-Server/Zettapark-MCP-Server/Claude Desktop as your AI Data Engineer
