@@ -125,10 +125,18 @@ docker pull czqiliang/mcp-clickzetta-server
 
 #### Start by Docker Compose
 
+```bash
+mkdir notebooks
+```
+
+Notice: Please set config.json file in notebooks folder
+
 Download docker compose file from [here](https://github.com/yunqiqiliang/jupyter-mcp-server/blob/main/jupyter_lab_server/docker-compose.yml) 
+
 ```bash
 docker compose up -d
 ```
+
 
 #### Or Start Local Server
 
