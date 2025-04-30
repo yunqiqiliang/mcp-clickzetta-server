@@ -129,7 +129,7 @@ docker pull czqiliang/mcp-clickzetta-server
 mkdir notebooks
 ```
 
-Notice: Please set config.json file in notebooks folder
+Notice: In this way, please set config.json file in notebooks folder.
 
 Download docker compose file from [here](https://github.com/yunqiqiliang/jupyter-mcp-server/blob/main/jupyter_lab_server/docker-compose.yml) 
 
@@ -137,6 +137,11 @@ Download docker compose file from [here](https://github.com/yunqiqiliang/jupyter
 docker compose up -d
 ```
 
+Access Jupyter Lab Server
+
+http://localhost:8888/
+
+Token: YOUR_SECURE_TOKEN
 
 #### Or Start Local Server
 
