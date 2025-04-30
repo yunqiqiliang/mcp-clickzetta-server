@@ -143,6 +143,8 @@ http://localhost:8888/
 
 Token: YOUR_SECURE_TOKEN
 
+Then create a new notebook, change name from Untitled.ipynb to notebook.ipynb .
+
 #### Or Start Local Server
 
 ```SHELL
