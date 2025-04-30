@@ -17,13 +17,11 @@ RUN uv venv
 ENV PATH="/app/.venv/bin:$PATH"
 # RUN source .venv/bin/activate
 # Install main package and dependencies during build
-RUN uv pip install -e .  --no-cache-dir 
+# RUN uv pip install -e .  --no-cache-dir 
+RUN uv pip install --upgrade pip \
+    && pip install hatchling \
+    && pip install .
 
-# Copy the requirements file into the container
-# COPY requirements.txt .
-
-# Install the dependencies specified in the requirements file
-# RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the current directory contents into the container at /app
 COPY src /app/src/

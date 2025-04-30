@@ -39,8 +39,16 @@ build-docker: ## Build multi-architecture Docker images
         -t czqiliang/mcp-clickzetta-server:${VERSION} \
         -t czqiliang/mcp-clickzetta-server:latest \
 		--pull=false \
-        --push \
+		--push \
         .
+build-docker-local-only:
+	docker buildx build --platform linux/arm64 \
+		--build-arg BASE_IMAGE=python:3.10-slim \
+		-t czqiliang/mcp-clickzetta-server:${VERSION} \
+		-t czqiliang/mcp-clickzetta-server:latest \
+		--pull=false \
+		--load \
+		.
 
 push-docker: ## Push multi-architecture Docker images
 	@echo "Images are pushed during the build-docker step with --push."
@@ -57,12 +65,12 @@ start-docker:
 	  --network=host \
 	  czqiliang/mcp-clickzetta-server:latest
 
-# pull-docker:
-# 	docker image pull czqiliang/mcp-clickzetta-server:latest
+pull-docker:
+	docker image pull czqiliang/mcp-clickzetta-server:latest
 
-push-docker:
-	docker push czqiliang/mcp-clickzetta-server:${VERSION}
-	docker push czqiliang/mcp-clickzetta-server:latest
+# push-docker:
+# 	docker push czqiliang/mcp-clickzetta-server:${VERSION}
+# 	docker push czqiliang/mcp-clickzetta-server:latest
 
 claude-linux:
 	NIXPKGS_ALLOW_UNFREE=1 nix run github:k3d3/claude-desktop-linux-flake \

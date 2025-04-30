@@ -121,7 +121,16 @@ docker pull czqiliang/mcp-clickzetta-server
   }
 ```
 
-### Install your Jupyter lab
+### Start your Jupyter lab
+
+#### Start by Docker Compose
+
+Download docker compose file from [here](https://github.com/yunqiqiliang/jupyter-mcp-server/blob/main/jupyter_lab_server/docker-compose.yml) 
+```bash
+docker compose up -d
+```
+
+#### Or Start Local Server
 
 ```SHELL
 # Create a clean environment (Python 3.10 worked during debugging)
