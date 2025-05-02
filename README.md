@@ -94,7 +94,20 @@ docker pull czqiliang/mcp-clickzetta-server
 
 
 
-### Create config.json file and set your login infor as below:
+
+
+### Start your Jupyter lab
+
+#### Start by Docker Compose
+
+- create folder
+
+```bash
+mkdir notebooks
+cd notebooks
+```
+
+- Create config.json file and set your login information as below:
 
 ```json
 {
@@ -121,23 +134,19 @@ docker pull czqiliang/mcp-clickzetta-server
   }
 ```
 
-### Start your Jupyter lab
-
-#### Start by Docker Compose
-
-```bash
-mkdir notebooks
-```
-
 Notice: In this way, please set config.json file in notebooks folder.
+You should chage query_tag for your purpose and it is using to find query by tag.
+
+- Download docker-compose.yml and start docker compose
 
 Download docker compose file from [here](https://github.com/yunqiqiliang/jupyter-mcp-server/blob/main/jupyter_lab_server/docker-compose.yml) 
 
 ```bash
 docker compose up -d
 ```
+Go to Docker desktop and check the docker compose is started.
 
-Access Jupyter Lab Server
+- Access Jupyter Lab Server
 
 http://localhost:8888/
 

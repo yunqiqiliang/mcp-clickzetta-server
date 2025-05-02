@@ -12,12 +12,19 @@ dependencies = [
     "pymysql",
     "psycopg2-binary",
     "typer==0.15.2",
+    "pandas>=2.2.3",
+    "python-dotenv>=1.0.1",
+    "sqlparse>=0.5.3",
+    "kiwisolver>=1.4.4",
+    "fonttools>=4.39.0",
+    "pyright>=1.1.300",
+    "matplotlib>=3.7.0",
+    "gradio",
+    "pillow",
     "mcp>=1.0.0",
     "clickzetta-connector-python>=0.8.89",
     "clickzetta-zettapark-python>=0.1.3",
-    "pandas>=2.2.3",
-    "python-dotenv>=1.0.1",
-    "sqlparse>=0.5.3"
+
 ]
 
 [build-system]
