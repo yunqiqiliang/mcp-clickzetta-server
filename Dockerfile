@@ -6,25 +6,44 @@ FROM ${BASE_IMAGE}
 
 # Set the working directory in the container
 WORKDIR /app
+
+# 首先复制依赖相关文件
 COPY pyproject.toml pyproject.toml
 COPY LICENSE LICENSE
 COPY README.md README.md
 
-# Install uv
-RUN pip install uv --no-cache-dir 
-RUN uv venv
-# 激活虚拟环境并设置 PATH
+# 设置环境变量以禁用版本检查和减少输出
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_NO_WARN_SCRIPT_LOCATION=0
+ENV PIP_ROOT_USER_ACTION=ignore
+
+# 复制本地的 unstructured_ingest-1.0.24-py3-none-any.whl 到镜像
+COPY dist/unstructured_ingest-1.0.24-py3-none-any.whl /app/dist/unstructured_ingest-1.0.24-py3-none-any.whl
+
+# 安装基础工具并使用uv创建虚拟环境并安装依赖
+RUN pip install --upgrade pip && \
+    pip install uv --no-cache-dir && \
+    # 创建虚拟环境
+    uv venv && \
+    uv pip install "unstructured-ingest[s3, pdf,docx,md,huggingface, embed-huggingface]" && \
+    # 先安装本地whl包
+    uv pip install --no-cache-dir --force-reinstall /app/dist/unstructured_ingest-1.0.24-py3-none-any.whl && \
+    # 再安装项目及依赖
+    uv pip install --no-cache-dir .
+
+# 设置虚拟环境路径，使容器运行时使用虚拟环境
 ENV PATH="/app/.venv/bin:$PATH"
-# RUN source .venv/bin/activate
-# Install main package and dependencies during build
-# RUN uv pip install -e .  --no-cache-dir 
-RUN uv pip install --upgrade pip \
-    && pip install hatchling \
-    && pip install .
 
+# 指定 HuggingFace 模型缓存目录为 /app/models
+# ENV TRANSFORMERS_CACHE=/app/models
+ENV HF_HOME=/app/models
 
-# Copy the current directory contents into the container at /app
+# 复制本地缓存的 BAAI/bge-base-zh-v1.5 模型到镜像
+COPY models/models--BAAI--bge-base-zh-v1.5 /app/models/models--BAAI--bge-base-zh-v1.5
+
+# 最后才复制源代码，提高缓存利用率
 COPY src /app/src/
 
 # Command to run the server
 CMD ["uv", "run", "mcp_clickzetta_server", "--no-prefetch", "--allow_write"]
+

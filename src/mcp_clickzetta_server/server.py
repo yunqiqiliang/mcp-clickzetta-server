@@ -21,15 +21,21 @@ from clickzetta.zettapark.session import Session
 import clickzetta.zettapark.types as T
 
 from .write_detector import SQLWriteDetector
-from .util import read_data_from_url_or_file_into_dataframe, generate_df_schema, get_embedding_xin,connect_to_database_and_read_data_from_table_into_dataframe
+from .util import read_data_from_url_or_file_into_dataframe, generate_df_schema, get_embedding_hf,connect_to_database_and_read_data_from_table_into_dataframe
 from .prompts import PROMPTS
 from .knowledges import KNOWLEDGES
 from .samples import SAMPLES
 
 import dotenv
+dotenv.load_dotenv()
 
 # 加载 samples 数据
 samples_sql = SAMPLES
+
+table_name = os.getenv("Similar_table_name")
+embedding_column_name = os.getenv("Similar_embedding_column_name")
+content_column_name = os.getenv("Similar_content_column_name")
+other_columns_name = os.getenv("Similar_other_columns_name")
 
 # Configure logging
 logging.basicConfig(
@@ -268,29 +274,30 @@ async def handle_vector_search(arguments, db, *_):
     dotenv.load_dotenv()
     if "table_name" not in arguments:
         table_name = os.getenv("Similar_table_name")
-    elif "table_name" in arguments:
+    else:
         table_name = arguments["table_name"]
     if "embedding_column_name" not in arguments:
         embedding_column_name = os.getenv("Similar_embedding_column_name")
-    elif "embedding_column_name" in arguments:
+    else:
         embedding_column_name = arguments["embedding_column_name"]
     if "content_column_name" not in arguments:
         content_column_name = os.getenv("Similar_content_column_name")
-    elif "content_column_name" in arguments:
+    else:
         content_column_name = arguments["content_column_name"]
     if "partition_scope" not in arguments:
         partition_scope = os.getenv("Similar_partition_scope")
-    elif "partition_scope" in arguments:
+    else:
         partition_scope = arguments["partition_scope"]
     
     question = arguments["question"]
-    embedded_question = get_embedding_xin(question)
+    embedded_question = get_embedding_hf(question)
+    embedding_list = embedded_question.tolist()
     query = f"""
-        SELECT {content_column_name},L2_DISTANCE({embedding_column_name}, CAST({embedded_question} as VECTOR(512))) AS distance, "vector_search_l2" as search_method
+        SELECT {content_column_name},L2_DISTANCE({embedding_column_name}, CAST("{embedding_list}" as VECTOR(768))) AS distance, "vector_search_l2" as search_method,{other_columns_name},CONCAT('https://yunqi.tech/documents', CASE WHEN SUBSTRING_INDEX(SUBSTRING_INDEX(file_directory, 's3/', -1), '/', 1) <> '' THEN CONCAT('/', SUBSTRING_INDEX(SUBSTRING_INDEX(file_directory, 's3/', -1), '/', 1)) ELSE '' END, '/', LEFT(filename, LENGTH(filename) - LENGTH(SUBSTRING_INDEX(filename, '.', -1)) - 1)) AS doc_link
         FROM {table_name}
-        WHERE {partition_scope}
+        WHERE L2_DISTANCE({embedding_column_name}, CAST("{embedding_list}" as VECTOR(768))) < 0.8
         ORDER BY 2
-        LIMIT 5;
+        LIMIT 10;
         """
     data, data_id = db.execute_query(query)
 
@@ -859,6 +866,26 @@ async def main(
             },
             handler=handle_get_knowledge_about_how_to_something,
             tags=["knowledge_based"],
+        ),
+        Tool(
+            name="get_clickzetta_product_knowledge_from_embedded_documents",
+            description=(f"Before use your own knowledge about clickzetta, please always use this tool to get knowledge not metioned in get_knowledge_about_how_to_do_something."
+                         "Similar search on clickzetta product knowledge base, handler's parametes as: table_name = {table_name},embedding_column_name = {embedding_column_name},content_column_name = {content_column_name},"
+                         "While get user question, this tool will execute vector search to retrieve documents about the question"
+                         "You could organize retrieve documents."
+                         "If doc_link is not NULL,YOU MUST SHOW doc_link at last to user to refer and get source information."
+                         "If the knowledge is not enough, please continue to query to get knowledge(filename is in handle_vector_search results): select text from {table_name} where filename = '{filename}';."),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "user question to search"
+                    },
+                },
+            },
+            handler=handle_vector_search,
+            tags=["knowledge_based"],
         )
     ]
     server.prompts = {
@@ -1011,7 +1038,7 @@ async def main(
     @server.list_tools()
     async def handle_list_tools() -> list[types.Tool]:
         logger.info("Listing tools")
-        logger.error(f"Allowed tools: {allowed_tools}")
+        logger.info(f"Allowed tools: {allowed_tools}")
         tools = [
             types.Tool(
                 name=tool.name,

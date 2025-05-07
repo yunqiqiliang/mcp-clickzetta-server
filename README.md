@@ -65,8 +65,6 @@ docker pull czqiliang/mcp-clickzetta-server
             "CLICKZETTA_USERNAME": "your clickzetta usename",
             "CLICKZETTA_PASSWORD": "your clickzetta password",
             "CLICKZETTA_VCLUSTER": "your clickzetta vcluster",
-            "XINFERENCE_BASE_URL": "http://host.docker.internal:9998",
-            "XINFERENCE_EMBEDDING_MODEL_512": "bge-small-zh",
             "Similar_table_name": "clickzegithub_event_issuesevent_embedding.github_event_issuesevent_embedding_512tta_table",
             "Similar_embedding_column_name": "issue_body_embedding",
             "Similar_content_column_name": "issue_body",
@@ -78,7 +76,6 @@ docker pull czqiliang/mcp-clickzetta-server
 ```
 
 - CLICKZETTA开头的env参数为必填
-- XINFERENCE开头的和Similar开头的env参数为可选，支持vector_search和match_all连个tools
 
 ![image.gif](image/trae_show.gif)
 
@@ -222,8 +219,6 @@ jupyter lab --port 8888 --IdentityProvider.token YOUR_SECURE_TOKEN --ip 0.0.0.0
             "-e", "CLICKZETTA_USERNAME",
             "-e", "CLICKZETTA_PASSWORD",
             "-e", "CLICKZETTA_VCLUSTER",
-            "-e", "XINFERENCE_BASE_URL",
-            "-e", "XINFERENCE_EMBEDDING_MODEL_512",
             "-e", "Similar_table_name",
             "-e", "Similar_embedding_column_name",
             "-e", "Similar_content_column_name",
@@ -238,8 +233,6 @@ jupyter lab --port 8888 --IdentityProvider.token YOUR_SECURE_TOKEN --ip 0.0.0.0
             "CLICKZETTA_USERNAME": "your clickzetta usename",
             "CLICKZETTA_PASSWORD": "your clickzetta password",
             "CLICKZETTA_VCLUSTER": "your clickzetta vcluster",
-            "XINFERENCE_BASE_URL": "http://host.docker.internal:9998",
-            "XINFERENCE_EMBEDDING_MODEL_512": "bge-small-zh",
             "Similar_table_name": "clickzegithub_event_issuesevent_embedding.github_event_issuesevent_embedding_512tta_table",
             "Similar_embedding_column_name": "issue_body_embedding",
             "Similar_content_column_name": "issue_body",
@@ -417,8 +410,6 @@ CLICKZETTA_INSTANCE = ""
 CLICKZETTA_WORKSPACE = ""
 CLICKZETTA_SCHEMA = ""
 CLICKZETTA_VCLUSTER = ""
-XINFERENCE_BASE_URL = "http://********:9998"
-XINFERENCE_EMBEDDING_MODEL_512 = "bge-small-zh"
 Similar_table_name = "github_event_issuesevent_embedding.github_event_issuesevent_embedding_512"
 Similar_embedding_column_name = "issue_body_embedding"
 Similar_content_column_name = "issue_body"
@@ -489,8 +480,6 @@ The MCP server (running in Docker) reads its configuration from environment vari
             "-e", "CLICKZETTA_USERNAME",
             "-e", "CLICKZETTA_PASSWORD",
             "-e", "CLICKZETTA_VCLUSTER",
-            "-e", "XINFERENCE_BASE_URL",
-            "-e", "XINFERENCE_EMBEDDING_MODEL_512",
             "-e", "Similar_table_name",
             "-e", "Similar_embedding_column_name",
             "-e", "Similar_content_column_name",
@@ -505,8 +494,6 @@ The MCP server (running in Docker) reads its configuration from environment vari
             "CLICKZETTA_USERNAME": "your clickzetta usename",
             "CLICKZETTA_PASSWORD": "your clickzetta password",
             "CLICKZETTA_VCLUSTER": "your clickzetta vcluster",
-            "XINFERENCE_BASE_URL": "http://host.docker.internal:9998",
-            "XINFERENCE_EMBEDDING_MODEL_512": "bge-small-zh",
             "Similar_table_name": "clickzegithub_event_issuesevent_embedding.github_event_issuesevent_embedding_512tta_table",
             "Similar_embedding_column_name": "issue_body_embedding",
             "Similar_content_column_name": "issue_body",

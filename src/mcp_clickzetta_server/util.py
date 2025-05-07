@@ -8,43 +8,21 @@ import clickzetta.zettapark.types as T
 
 from sqlalchemy import create_engine, text
 
-import pandas as pd
-import requests
-import zipfile
-import gzip
-import os
-from io import StringIO, BytesIO
+import os,json
 
-from xinference.client import Client as Xinference_Client
-import dotenv
-dotenv.load_dotenv()
-xinference_base_url = os.getenv("XINFERENCE_BASE_URL")
-xinference_embedding_model_512 = os.getenv("XINFERENCE_EMBEDDING_MODEL_512")
+from sentence_transformers import SentenceTransformer
 
-def get_embedding_xin(
-    input_text: str,
-    base_url: str = xinference_base_url,
-    model_name: str = xinference_embedding_model_512
-) -> list:
-    """
-    获取文本的嵌入向量
-    
-    参数:
-    input_text (str): 要生成嵌入向量的文本
-    base_url (str): Xinference服务器地址，默认为本地服务
-    model_name (str): 要使用的模型名称，默认为bge-m3
-    
-    返回:
-    list: 文本的嵌入向量
-    """
-    # 使用别名创建客户端连接
-    client = Xinference_Client(base_url)  # 修改类名调用
-    
-    # 获取指定模型
-    model = client.get_model(model_name)
-    embedding = model.create_embedding(input_text)
-    # 生成并返回嵌入向量
-    return embedding['data'][0]['embedding']
+
+embeddings_dimensions = 768
+chunk_max_characters =512
+chunk_overlap = 200
+embedding_provider = "huggingface"
+embedding_model_name_768 = "BAAI/bge-base-zh-v1.5"
+
+def get_embedding_hf(query):
+    model = SentenceTransformer(embedding_model_name_768)
+    return model.encode(query, normalize_embeddings=True)
+
 
 def read_data_from_url_or_file_into_dataframe(source: str, **kwargs) -> pd.DataFrame:
     """

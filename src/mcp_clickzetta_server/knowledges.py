@@ -4,7 +4,7 @@ KNOWLEDGES = {
         "title": "How to Analyze Slow Queries",
         "description": "Guidelines and best practices for analyzing and optimizing slow queries.",
         "steps": [
-            "Get the top 1 slow queries using excute sql query: SELECT workspace_name, job_creator, job_type, job_text, status, virtual_cluster, job_priority, CAST(execution_time AS INTEGER) AS execution_time_seconds, cast(pt_date as STRING) AS job_date FROM information_schema.job_history WHERE pt_date >= CURRENT_DATE - INTERVAL '1 days' ORDER BY execution_time_seconds DESC LIMIT 1;. job_text column is the slow query sql statement.",
+            "Get the top 3 slow queries using excute the default sql query: SELECT workspace_name, job_creator, job_type, job_text, status, virtual_cluster, job_priority, CAST(execution_time AS INTEGER) AS execution_time_seconds, cast(pt_date as STRING) AS job_date FROM information_schema.job_history WHERE pt_date >= CURRENT_DATE - INTERVAL '3 days' ORDER BY execution_time_seconds DESC LIMIT 3;. job_text column is the slow query sql statement.",
             "Excute explain query to understand the query execution plan using excute sql query: EXPLAIN <slow_query>.",
             "Give optimization suggestions based on the execution plan."
         ],
