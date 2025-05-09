@@ -29,17 +29,19 @@ RUN pip install --upgrade pip && \
     # 先安装本地whl包
     uv pip install --no-cache-dir --force-reinstall /app/dist/unstructured_ingest-1.0.24-py3-none-any.whl && \
     # 再安装项目及依赖
-    uv pip install --no-cache-dir .
+    uv pip install --no-cache-dir . && \
+    # 清理pip缓存
+    rm -rf /root/.cache/pip
 
 # 设置虚拟环境路径，使容器运行时使用虚拟环境
 ENV PATH="/app/.venv/bin:$PATH"
 
 # 指定 HuggingFace 模型缓存目录为 /app/models
-# ENV TRANSFORMERS_CACHE=/app/models
+ENV TRANSFORMERS_CACHE=/app/models
 ENV HF_HOME=/app/models
 
-# 复制本地缓存的 BAAI/bge-base-zh-v1.5 模型到镜像
-COPY models/models--BAAI--bge-base-zh-v1.5 /app/models/models--BAAI--bge-base-zh-v1.5
+# 复制本地缓存的 BAAI/bge-m3 模型到镜像的正确路径
+COPY models/models--BAAI--bge-m3 /app/models/models--BAAI--bge-m3
 
 # 最后才复制源代码，提高缓存利用率
 COPY src /app/src/

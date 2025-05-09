@@ -13,14 +13,19 @@ import os,json
 from sentence_transformers import SentenceTransformer
 
 
-embeddings_dimensions = 768
-chunk_max_characters =512
-chunk_overlap = 200
 embedding_provider = "huggingface"
 embedding_model_name_768 = "BAAI/bge-base-zh-v1.5"
+embedding_model_name_1024 = "BAAI/bge-m3"
+embedding_dim = 1024
+embedding_max_tokens = 2048
+if embedding_dim == 768:
+    embedding_model_name = embedding_model_name_768
+elif embedding_dim == 1024:
+    embedding_model_name = embedding_model_name_1024
+
 
 def get_embedding_hf(query):
-    model = SentenceTransformer(embedding_model_name_768)
+    model = SentenceTransformer(embedding_model_name)
     return model.encode(query, normalize_embeddings=True)
 
 

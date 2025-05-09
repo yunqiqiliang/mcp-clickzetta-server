@@ -21,7 +21,7 @@ from clickzetta.zettapark.session import Session
 import clickzetta.zettapark.types as T
 
 from .write_detector import SQLWriteDetector
-from .util import read_data_from_url_or_file_into_dataframe, generate_df_schema, get_embedding_hf,connect_to_database_and_read_data_from_table_into_dataframe
+from .util import read_data_from_url_or_file_into_dataframe, generate_df_schema, get_embedding_hf,connect_to_database_and_read_data_from_table_into_dataframe,embedding_dim,embedding_max_tokens
 from .prompts import PROMPTS
 from .knowledges import KNOWLEDGES
 from .samples import SAMPLES
@@ -63,7 +63,7 @@ def convert_df_to_dict(data: pd.DataFrame) -> list[dict[str, Any]]:
     return data
 
 def data_to_yaml(data: Any) -> str:
-    return yaml.dump(data, indent=2, sort_keys=False)
+    return yaml.dump(data, indent=2, sort_keys=False, allow_unicode=True)
 
 
 class ClickzettaDB:
@@ -174,7 +174,7 @@ async def handle_list_tables(arguments, db, *_):
         "data": data,
     }
     yaml_output = data_to_yaml(output)
-    json_output = json.dumps(output)
+    json_output = json.dumps(output, ensure_ascii=False)
     return [
         types.TextContent(type="text", text=yaml_output),
         types.EmbeddedResource(
@@ -204,7 +204,7 @@ async def handle_describe_table(arguments, db, *_):
         "data": data,
     }
     yaml_output = data_to_yaml(output)
-    json_output = json.dumps(output)
+    json_output = json.dumps(output, ensure_ascii=False)
     return [
         types.TextContent(type="text", text=yaml_output),
         types.EmbeddedResource(
@@ -231,7 +231,7 @@ async def handle_show_object_list(arguments, db, *_):
         "data": data,
     }
     yaml_output = data_to_yaml(output)
-    json_output = json.dumps(output)
+    json_output = json.dumps(output, ensure_ascii=False)
     return [
         types.TextContent(type="text", text=yaml_output),
         types.EmbeddedResource(
@@ -259,7 +259,7 @@ async def handle_desc_object(arguments, db, *_):
         "data": data,
     }
     yaml_output = data_to_yaml(output)
-    json_output = json.dumps(output)
+    json_output = json.dumps(output, ensure_ascii=False)
     return [
         types.TextContent(type="text", text=yaml_output),
         types.EmbeddedResource(
@@ -288,17 +288,43 @@ async def handle_vector_search(arguments, db, *_):
         partition_scope = os.getenv("Similar_partition_scope")
     else:
         partition_scope = arguments["partition_scope"]
+    if "other_columns_name" not in arguments:
+        other_columns_name = os.getenv("Similar_other_columns_name")
+    else:
+        other_columns_name = arguments["other_columns_name"]
+    if "vector_search_limit_n" not in arguments:
+        vector_search_limit_n = 1
+    else:
+        vector_search_limit_n = arguments["vector_search_limit_n"]
     
     question = arguments["question"]
     embedded_question = get_embedding_hf(question)
     embedding_list = embedded_question.tolist()
     query = f"""
-        SELECT {content_column_name},L2_DISTANCE({embedding_column_name}, CAST("{embedding_list}" as VECTOR(768))) AS distance, "vector_search_l2" as search_method,{other_columns_name},CONCAT('https://yunqi.tech/documents', CASE WHEN SUBSTRING_INDEX(SUBSTRING_INDEX(file_directory, 's3/', -1), '/', 1) <> '' THEN CONCAT('/', SUBSTRING_INDEX(SUBSTRING_INDEX(file_directory, 's3/', -1), '/', 1)) ELSE '' END, '/', LEFT(filename, LENGTH(filename) - LENGTH(SUBSTRING_INDEX(filename, '.', -1)) - 1)) AS doc_link
+        SELECT {content_column_name},
+               COSINE_DISTANCE({embedding_column_name}, CAST("{embedding_list}" as VECTOR({embedding_dim}))) AS distance,
+               "vector_search_cosine" as search_method,
+               {other_columns_name},
+               CONCAT(
+                   'https://yunqi.tech/documents',
+                   CASE 
+                       WHEN RIGHT(file_directory, 3) = '/s3' THEN ''
+                       WHEN RIGHT(filename, 3) <> '.md' THEN ''
+                       ELSE CONCAT('/', SUBSTRING_INDEX(file_directory, '/s3/', -1))
+                   END,
+                   CASE 
+                       WHEN RIGHT(filename, 3) <> '.md' THEN ''
+                       ELSE CONCAT(
+                           '/',
+                           LEFT(filename, LENGTH(filename) - LENGTH(SUBSTRING_INDEX(filename, '.', -1)) - 1)
+                       )
+                   END
+               ) AS doc_link
         FROM {table_name}
-        WHERE L2_DISTANCE({embedding_column_name}, CAST("{embedding_list}" as VECTOR(768))) < 0.8
+        WHERE COSINE_DISTANCE({embedding_column_name}, CAST("{embedding_list}" as VECTOR({embedding_dim}))) < 0.8
         ORDER BY 2
-        LIMIT 10;
-        """
+        LIMIT {vector_search_limit_n};
+    """
     data, data_id = db.execute_query(query)
 
     # Convert the DataFrame back to a list of dictionaries
@@ -310,7 +336,7 @@ async def handle_vector_search(arguments, db, *_):
         "data": data,
     }
     yaml_output = data_to_yaml(output)
-    json_output = json.dumps(output)
+    json_output = json.dumps(output, ensure_ascii=False)
     return [
         types.TextContent(type="text", text=yaml_output),
         types.EmbeddedResource(
@@ -354,7 +380,7 @@ async def handle_match_all(arguments, db, *_):
         "data": data,
     }
     yaml_output = data_to_yaml(output)
-    json_output = json.dumps(output)
+    json_output = json.dumps(output, ensure_ascii=False)
     return [
         types.TextContent(type="text", text=yaml_output),
         types.EmbeddedResource(
@@ -395,7 +421,7 @@ async def handle_import_data_into_table_from_url(arguments, db, *_):
         "data": data,
     }
     yaml_output = data_to_yaml(output)
-    json_output = json.dumps(output)
+    json_output = json.dumps(output, ensure_ascii=False)
     return [
         types.TextContent(type="text", text=yaml_output),
         types.EmbeddedResource(
@@ -495,7 +521,7 @@ async def handle_import_data_into_table_from_database(arguments, db, *_):
         "data": data,
     }
     yaml_output = data_to_yaml(output)
-    json_output = json.dumps(output)
+    json_output = json.dumps(output, ensure_ascii=False)
 
     return [
         types.TextContent(type="text", text=yaml_output),
@@ -518,7 +544,7 @@ async def handle_read_query(arguments, db, write_detector, *_):
         "data": data,
     }
     yaml_output = data_to_yaml(output)
-    json_output = json.dumps(output)
+    json_output = json.dumps(output, ensure_ascii=False)
     return [
         types.TextContent(type="text", text=yaml_output),
         types.EmbeddedResource(
@@ -560,11 +586,11 @@ async def handle_get_knowledge_about_how_to_something(arguments, db, _, allow_wr
     if not arguments or "to_do_something" not in arguments:
         raise ValueError("Missing to_do_something argument to describe your purpose")
 
-    data = [
-        KNOWLEDGES[arguments["to_do_something"]],
-    ]
+    data = KNOWLEDGES[arguments["to_do_something"]]
     data_id = str(uuid.uuid4())
-    return [types.TextContent(type="text", text=f"Get knowledge about how to analyze slow query as {data}, data_id = {data_id}")]
+    # 使用 ensure_ascii=False 保证中文不乱码
+    text = json.dumps(data, ensure_ascii=False, indent=2)
+    return [types.TextContent(type="text", text=f"Get knowledge about how to analyze as:\n{text}\ndata_id = {data_id}")]
 
 
 async def handle_create_table_with_prompt(arguments, db, _, allow_write, __):
@@ -597,6 +623,47 @@ async def handle_create_table_with_prompt(arguments, db, _, allow_write, __):
     return [
         types.TextContent(type="text", text=f"Table '{table_name}' created successfully. data_id = {data_id}")
     ]
+
+async def handle_add_new_clickzetta_product_knowledge_to_embedded_documents(arguments, db, *_):
+    if not arguments or "knowledge" not in arguments:
+        raise ValueError("Missing knowledge argument")
+    knowledge = arguments["knowledge"]
+    if "knowledge_table_name" not in arguments:
+        knowledge_table_name = table_name
+    else:
+        knowledge_table_name = arguments["knowledge_table_name"]
+    embedded_kb = get_embedding_hf(knowledge)
+    embedded_kb_list = embedded_kb.tolist()
+    add_kb_sql = f"""
+        INSERT INTO {knowledge_table_name} (
+        id, type, record_id, element_id, filetype, last_modified, languages, text, embeddings, date_created, date_modified, date_processed
+        ) VALUES (
+        uuid(), 'UserInput', uuid(), uuid(), 'text', CURRENT_TIMESTAMP, '["zh-cn"]',
+        '{knowledge}',
+        CAST('{embedded_kb_list}' AS vector(float,{embedding_dim})), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        );
+        """
+    data, data_id = db.execute_query(add_kb_sql)
+
+    # Convert the DataFrame back to a list of dictionaries
+    data = convert_df_to_dict(data)
+
+    output = {
+        "type": "data",
+        "data_id": data_id,
+        "data": data,
+    }
+    yaml_output = data_to_yaml(output)
+    json_output = json.dumps(output, ensure_ascii=False)
+    return [
+        types.TextContent(type="text", text=yaml_output),
+        types.EmbeddedResource(
+            type="resource",
+            resource=types.TextResourceContents(uri=f"data://{data_id}", text=json_output, mimeType="application/json"),
+        ),
+    ]
+
+
 
 async def prefetch_tables(db: ClickzettaDB, credentials: dict) -> dict:
     """Prefetch table and column information"""
@@ -759,10 +826,10 @@ async def main(
         ),
         Tool(
             name="vector_search",
-            description="Perform vector search on a table using a question and return the top 5 closest answers",
+            description="Perform vector search/knowledge retrieve/document retrieve on a table using a question and return the vector_search_limit_n closest answers",
             input_schema={
                 "type": "object",
-                "properties": {"table_name": {"type": "string", "description": "table name"},"content_column_name": {"type": "string", "description": "column which stored content"},"embedding_column_name": {"type": "string", "description": "column which stored embedding"},"partition_scope": {"type": "string", "description": "sql code to define the partiion scope as part of where condition"} },
+                "properties": {"table_name": {"type": "string", "description": "table name"},"content_column_name": {"type": "string", "description": "column which stored content"},"embedding_column_name": {"type": "string", "description": "column which stored embedding"},"handle_vector_search":{"type": "string", "description": "other columes tobe selected, format is column1, columns2,columns2"},"partition_scope": {"type": "string", "description": "sql code to define the partiion scope as part of where condition"},"vector_search_limit_n":{"type": "string", "description": "limit the return results,default is 1"} },
                 "required": ["question"],
             },
             handler=handle_vector_search,
@@ -852,15 +919,24 @@ async def main(
             name="get_knowledge_about_how_to_do_something",
             description=("guide on how to something, like how to analyze slow query,"
                         "analyze table with small file,how to create table syntax, "
-                        "how to create vcluster, how to create index, how to alter table and column, "
+                        "how to create vcluster, how to create and build index, how to alter table and column, "
                         "how to create storage connection, how to create external volume,"
-                        "how to alter vcluster, partition table guide,cluster table guide, etc."),
+                        "how to alter vcluster, partition table guide,cluster table guide, "
+                        "How to Do Attribution Analysis,How to Do Forecasting Analysis, "
+                        "how to get and set current context information, "
+                        "How to use Information Schema to summarize the current status or analyze problems of system performance monitoring and data governance, etc."),
             input_schema={
                 "type": "object",
                 "properties": {
                     "to_do_something": {
                         "type": "string",
-                        "description": "The thing you want to do, should be one of the following: analyze_slow_query, analyze_table_with_small_file,create_table_syntax,how_to_create_vcluster, how_to_create_index, how_to_alter_table_and_column,how_to_create_storage_connection, how_to_create_external_volume, how_to_alter_vcluster,partition_table_guide,cluster_table_guide, etc."
+                        "description": ("The thing you want to do, should be one of the following: "
+                        "analyze_slow_query, analyze_table_with_small_file,create_table_syntax,"
+                        "how_to_create_vcluster, how_to_create_and_build_index, how_to_alter_table_and_column,"
+                        "how_to_create_storage_connection, how_to_create_external_volume, how_to_alter_vcluster,"
+                        "partition_table_guide,cluster_table_guide,how_to_do_attribution_analysis,"
+                        "how_to_do_forecasting_analysis, how_to_get_and_set_context_info,"
+                        "how_to_analyze_system_issues_and_data_governance_with_information_schema,etc.")
                     },
                 },
             },
@@ -871,21 +947,44 @@ async def main(
             name="get_clickzetta_product_knowledge_from_embedded_documents",
             description=(f"Before use your own knowledge about clickzetta, please always use this tool to get knowledge not metioned in get_knowledge_about_how_to_do_something."
                          "Similar search on clickzetta product knowledge base, handler's parametes as: table_name = {table_name},embedding_column_name = {embedding_column_name},content_column_name = {content_column_name},"
-                         "While get user question, this tool will execute vector search to retrieve documents about the question"
-                         "You could organize retrieve documents."
-                         "If doc_link is not NULL,YOU MUST SHOW doc_link at last to user to refer and get source information."
-                         "If the knowledge is not enough, please continue to query to get knowledge(filename is in handle_vector_search results): select text from {table_name} where filename = '{filename}';."),
+                         "While get user question, please refine the question to make sentences suitable for vector retrieval and in chinese, this tool will execute vector search to retrieve documents about the question."
+                         "Don't include clickzetta/ClickZetta/Clickzetta in question."
+                         "While search via WEB, please replace clickzetta/ClickZetta/Clickzetta with 云器."
+                         "If doc_link is not NULL,YOU MUST SHOW doc_link with title at last to user as reference and get source information."),
             input_schema={
                 "type": "object",
                 "properties": {
                     "question": {
                         "type": "string",
-                        "description": "user question to search"
+                        "description": "user question to search,such as 自定义函数, 常用DDL语句, 数据导入导出"
                     },
+                    "vector_search_limit_n":{
+                        "type": "string", 
+                        "description": "limit the return results,default value is 1"}
                 },
             },
             handler=handle_vector_search,
             tags=["knowledge_based"],
+        ),
+        Tool(
+            name="add_new_clickzetta_product_knowledge_to_embedded_documents",
+            description=(f"Add new knowledge to embeded documents(store as table format). The string length of knowledge should be less than {embedding_max_tokens} characters."
+                         "While you learned new knowledge about clickzetta/云器/Singdata, especially knowledge for solving specific problems or private knowledge, please ask user if use this tool to add new knowledge to embedded documents."),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "knowledge_table_name": {
+                        "type": "string",
+                        "description": "new knowledge to be stored in which table, default is {table_name}"
+                    },
+                    "knowledge": {
+                        "type": "string",
+                        "description": "new knowledge to add, such as:'Yunqi是云器的汉语拼音名称,云器/Singdata/ClickZetta在技术上是等同的名称','云器Lakehouse的SQl是和Spark SQl、Snowflake高度兼容，云器的Zettapark是和pySpark、Snowflake的Snowpark是高度兼容的，但不是100%兼容'"
+                    },
+                },
+            },
+            handler=handle_add_new_clickzetta_product_knowledge_to_embedded_documents,
+            tags=["write"],
         )
     ]
     server.prompts = {

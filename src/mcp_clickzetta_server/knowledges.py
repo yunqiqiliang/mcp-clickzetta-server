@@ -1,5 +1,62 @@
 # -*- coding: utf-8 -*-
 KNOWLEDGES = {
+    "how_to_do_forecasting_analysis": {
+        "title": "How to Do Forecasting Analysis",
+        "description": "Step-by-step guide and best practices for performing forecasting analysis using Python tools to predict future trends of key metrics and support data-driven decision making.",
+        "steps": [
+            "If Jupyter MCP Server is connected, please use the Jupyter Notebook to do the forecasting analysis.",
+            "Define the forecasting objective: clarify the metric to forecast, its business significance, and the required forecast horizon.",
+            "Check Tables from ClickZetta, Collect and preprocess historical data (using pandas, numpy, etc.), ensuring data quality and completeness.",
+            "Visualize historical trends and seasonality (using matplotlib, seaborn, plotly, etc.) to understand data patterns.",
+            "Select appropriate forecasting methods based on data characteristics and business needs.",
+            "Split the data into training and validation sets for model evaluation.",
+            "Build and train the forecasting model using Python libraries (such as statsmodels, scikit-learn, prophet, etc.).",
+            "Evaluate model performance using metrics like MAE, RMSE, or MAPE on the validation set.",
+            "Generate forecasts for the required period and visualize the results.",
+            "Interpret the forecast results and provide actionable business recommendations."
+        ],
+        "common_methods": [
+            "ARIMA/SARIMA (statsmodels)",
+            "Exponential Smoothing (Holt-Winters, statsmodels)",
+            "Prophet (facebook/prophet)",
+            "LSTM/GRU (Keras, PyTorch)",
+            "Random Forest/Gradient Boosting Regression (scikit-learn, xgboost, lightgbm)"
+        ],
+        "optimization_tips": [
+            "Analyze and address missing values, outliers, and anomalies before modeling.",
+            "Compare multiple models and select the best-performing one.",
+            "Regularly update the model with new data to maintain accuracy.",
+            "Communicate uncertainty and confidence intervals in forecasts to stakeholders."
+        ]
+    },
+    "how_to_do_attribution_analysis": {
+        "title": "How to Do Attribution Analysis",
+        "description": "Step-by-step guide and best practices for performing attribution analysis to identify key factors driving metric changes and support data-driven business decisions.",
+        "steps": [
+            "If Jupyter MCP Server is connected, please use the Jupyter Notebook to do the attribution analysis.",
+            "Define the attribution goal: clarify the metric to analyze, its calculation method, and the business context.",
+            "Check Tables from ClickZetta, Select the relevant data table(s) and ensure data quality.",
+            "Determine the analysis time period (e.g., year, month, week, day) and whether to compare year-over-year or period-over-period.",
+            "Visualize the metric trend and its comparison (YoY/MoM) to identify significant changes.",
+            "Identify candidate attribution factors (dimensions or features) that may impact the metric.",
+            "Choose appropriate attribution analysis methods (e.g., variance decomposition, Shapley value, regression analysis, decision tree, etc.).",
+            "Perform the attribution analysis and generate a contribution summary table.",
+            "Visualize the attribution results for better communication.",
+            "Provide actionable recommendations for data operations and business optimization based on the findings."
+        ],
+        "common_methods": [
+            "Variance decomposition",
+            "Shapley value decomposition",
+            "Regression analysis",
+            "Decision tree analysis"
+        ],
+        "optimization_tips": [
+            "Align attribution factors with business logic to avoid missing key drivers.",
+            "Use multiple methods for cross-validation to improve robustness.",
+            "Visualize results for clear communication with stakeholders.",
+            "Iteratively refine the analysis as business or data changes."
+        ]
+    },
     "analyze_slow_query": {
         "title": "How to Analyze Slow Queries",
         "description": "Guidelines and best practices for analyzing and optimizing slow queries.",
@@ -1155,8 +1212,103 @@ KNOWLEDGES = {
     "references": [
             "https://yunqi.tech/documents/cluster-table-guide"
         ]
-}
+},
+    "how_to_analyze_system_issues_and_data_governance_with_information_schema": {
+        "title": "如何通过Information Schema进行系统性能监控与数据治理的现状总结或者问题分析",
+        "description": "指导如何利用实例级或工作空间级的Information Schema中的元数据视图进行问题分析，包括视图范围判定、视图列表获取、视图结构查看、SQL生成与执行、结果解读与建议。",
+        "steps": [
+            {
+                "step": 1,
+                "description": "确定Information Schema的范围（实例级instance_level或工作空间级workspace_level），缺省为工作空间级workspace_level。"
+            },
+            {
+                "step": 2,
+                "description": "获取Information Schema中的视图列表：",
+                "sql_examples": {
+                    "workspace_level": "show tables in information_schema where is_view=true;",
+                    "instance_level": "show tables in sys.information_schema where is_view=true;"
+                },
+                "note": "返回的table_name即为视图名称。"
+            },
+            {
+                "step": 3,
+                "description": "根据待分析问题，确定分析目标，确定需要用到的视图（table_name）。"
+            },
+            {
+                "step": 4,
+                "description": "查看每个目标视图的结构信息，可能有多个，请逐一查看：",
+                "sql_examples": {
+                    "workspace_level": "desc information_schema.[table_name];",
+                    "instance_level": "desc sys.information_schema.[table_name];"
+                }
+            },
+            {
+                "step": 5,
+                "description": "结合分析目标和视图结构，编写SQL并执行，获取分析所需数据。"
+            },
+            {
+                "step": 6,
+                "description": "对查询结果结合问题进行分析、总结，并给出优化建议。"
+            }
+        ],
+        "example": {
+            "scenario": "分析近三天执行时间最长的SQL作业",
+            "sql": "SELECT workspace_name, job_creator, job_type, job_text, status, virtual_cluster, job_priority, CAST(execution_time AS INTEGER) AS execution_time_seconds, cast(pt_date as STRING) AS job_date FROM information_schema.job_history WHERE pt_date >= CURRENT_DATE - INTERVAL '3 days' ORDER BY execution_time_seconds DESC LIMIT 3;"
+        },
+        "suggestions": [
+            "优先选择工作空间级视图，除非需要全局实例级信息。",
+            "通过desc命令了解视图字段，避免字段拼写错误。",
+            "分析结果后，结合业务场景给出针对性的优化建议，如SQL调优、资源配置调整等。"
+        ],
+        "references": [
+            {
+                "title": "空间级Information Schema介绍文档",
+                "url": "https://yunqi.tech/documents/worksapce-informaiton_schema-views"
+            },
+            {
+                "title": "实例级Information Schema介绍文档",
+                "url": "https://yunqi.tech/documents/instance-informaiton-schema-summary"
+            }
+        ]
+    },
+    "how_to_get_and_set_context_info": {
+        "title": "如何获得和修改当前上下文信息",
+        "description": "介绍如何通过SQL函数获取当前实例、工作空间、用户、Schema、VCluster等上下文信息，以及如何修改当前会话的默认Schema和VCluster。",
+        "get_context_functions": [
+            {"function": "current_instance_id()", "description": "获取当前实例ID", "example": "SELECT current_instance_id();"},
+            {"function": "current_workspace()", "description": "获取当前工作空间名称", "example": "SELECT current_workspace();"},
+            {"function": "current_workspace_id()", "description": "获取当前工作空间ID", "example": "SELECT current_workspace_id();"},
+            {"function": "current_schema()", "description": "获取当前Schema名称", "example": "SELECT current_schema();"},
+            {"function": "current_user()", "description": "获取当前用户名称", "example": "SELECT current_user();"},
+            {"function": "current_user_id()", "description": "获取当前用户ID", "example": "SELECT current_user_id();"},
+            {"function": "current_vcluster()", "description": "获取当前VCluster名称", "example": "SELECT current_vcluster();"}
+        ],
+        "set_context_commands": [
+            {"command": "USE [SCHEMA] schema_name;", "description": "切换当前会话的默认Schema，当您执行此操作后，所有未明确指定 SCHEMA 的 SQL 查询和命令都将在新设定的 SCHEMA 范围内执行"},
+            {"command": "USE VCLUSTER vc_name;", "description": "切换当前会话的计算资源VCluster"}
+        ],
+        "examples": [
+            {
+                "scenario": "获取当前用户和Schema",
+                "sql": "SELECT current_user(), current_schema();"
+            },
+            {
+                "scenario": "切换到指定Schema和VCluster",
+                "sql": "USE SCHEMA my_schema;\nUSE VCLUSTER analytics_vc;"
+            }
+        ],
+        "notes": [
+            "上下文函数无需参数，直接SELECT即可获得当前会话信息。",
+            "切换Schema或VCluster只影响当前会话，不影响其他用户和其它会话。"
+        ],
+        "references": [
+            {
+                "title": "上下文函数官方文档",
+                "url": "https://yunqi.tech/documents/context_function"
+            }
+        ]
+    }
 }
 
 
-  
+

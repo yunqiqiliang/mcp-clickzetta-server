@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 单元测试与覆盖率
+tests/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+
+# 虚拟环境
+.venv/
+env/
+ENV/
+venv/
+
+# Git
+.git
+.gitignore
+
+# 编辑器/IDE
+.vscode/
+.idea/
+*.swp
+
+# 构建输出
+# dist/
+build/
+*.egg-info/
+
+# 其他
+.DS_Store
+*.log
+
+# 不需要的模型缓存（如有）
+# *.safetensors
+# *.bin
