@@ -6,3 +6,11 @@ uv.lock
 src/mcp_clickzetta_server/__pycache__
 **/.DS_Store
 # dist
+gharchive.env
+test/__pycache__/test_prompt.cpython-312.pyc
+/models
+/scripts
+/knowledge
+/dist
+/.lsp
+.clj-kondo/.cache/v1/lock
